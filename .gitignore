@@ -1,0 +1,30 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+*.log
+.idea/
+.vscode/
+
+# ML datasets
+data/SMD/
+
+# Model checkpoints
+checkpoints/*.pt
+checkpoints/*.pth
+
+# Training artifacts
+checkpoints/*.npy
+
+# Generated plots
+plots/*.png
+
+# Evaluation backups
+evaluate_smd_final_backup.py
+evaluate_smd_final_backup2.py
+evaluate_smd_final_broken.py
+evaluate_smd_threshold_backup.py
+
+# Generated plot reports
+plots/
