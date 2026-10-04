@@ -1,0 +1,2 @@
+episode_id,start_window_idx,end_window_idx,n_flagged_windows,start_timestep,end_timestep,start_timestamp,end_timestamp,physical_duration_sec,max_anomaly_score,mean_anomaly_score,dominant_feature,dominant_feature_mean_residual
+1,0,71,72,3060,3190,2026-10-02T19:34:01.915736+00:00,2026-10-02T19:36:11.942936+00:00,131,5.858325,5.507673,disk_write_count_per_sec,24.5018

@@ -110,7 +110,7 @@ class SelfAttentionGraphLearner(nn.Module):
         attn_weights = attn.mean(dim=1)                                  # (B, M, M)
 
         # Sparsify: keep only strong connections
-        k = 5
+        k = min(5, M) if M > 0 else 1
 
         topk_vals, topk_idx = torch.topk(attn_weights, k=k, dim=-1)
 

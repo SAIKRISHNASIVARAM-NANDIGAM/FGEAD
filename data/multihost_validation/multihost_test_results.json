@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-10-04T15:01:08Z",
+  "total_tests": 17,
+  "passed_tests": 17,
+  "results": {
+    "1. Register Windows Host": "PASSED",
+    "2. Register Linux Host": "PASSED",
+    "3. Authenticate Agent": "PASSED",
+    "4. Send Telemetry": "PASSED",
+    "5. Reject Unauthenticated Telemetry": "PASSED",
+    "6. Reject Unknown Host": "PASSED",
+    "7. Reject Wrong Feature Count": "PASSED",
+    "8. Reject NaN": "PASSED",
+    "9. Reject Inf": "PASSED",
+    "10. Maintain Independent Host Buffers": "PASSED",
+    "11. Run Independent Inference": "PASSED",
+    "12. Track Independent Episodes": "PASSED",
+    "13. Detect Offline Host": "PASSED",
+    "14. Recover Host": "PASSED",
+    "15. Verify Dashboard Host Selection": "PASSED",
+    "16. Verify Fleet Dashboard": "PASSED",
+    "17. Verify SMD Isolation": "PASSED"
+  }
+}

@@ -12,8 +12,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.graph_learner import FeatureEmbedding, SelfAttentionGraphLearner
-from models.temporal_gcn import TemporalGraphModel
+try:
+    from models.graph_learner import FeatureEmbedding, SelfAttentionGraphLearner
+    from models.temporal_gcn import TemporalGraphModel
+except ImportError:
+    from graph_learner import FeatureEmbedding, SelfAttentionGraphLearner
+    from temporal_gcn import TemporalGraphModel
 
 
 class FGEAD(nn.Module):

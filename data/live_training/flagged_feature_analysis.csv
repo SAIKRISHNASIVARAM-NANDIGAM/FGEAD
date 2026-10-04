@@ -1,0 +1,23 @@
+feature,mean_residual_flagged,mean_residual_unflagged,residual_increase_ratio,flagged_raw_mean,flagged_raw_max,flagged_raw_p95,unflagged_raw_mean,unflagged_raw_max,unflagged_raw_p95,description
+disk_write_count_per_sec,24.5018,0.3196,76.67,935.11,3910.5,3565.6,13.83,887.8,47.0,Disk write I/O operations rate (IOPS)
+disk_write_bytes_per_sec,2.9312,0.1609,18.22,4557047.5,20941980.0,16275572.0,130657.0,9567431.0,377024.81,Disk storage write throughput (bytes/sec)
+cpu_user_time_percent,1.3636,0.4774,2.86,7.73,19.6,17.2,4.11,16.1,7.0,CPU execution time in user space (%)
+disk_read_count_per_sec,1.2259,0.2155,5.69,13.09,261.0,54.0,0.58,261.0,1.0,Disk read I/O operations rate (IOPS)
+cpu_percent,1.1803,0.5186,2.28,22.43,40.3,36.8,15.71,35.6,24.7,Total CPU utilization across all logical cores (%)
+net_packets_sent_per_sec,1.0955,0.2745,3.99,169.1,1763.8,1430.0,29.91,643.2,173.0,Network packets transmitted per second (pkts/sec)
+net_bytes_sent_per_sec,0.9618,0.3033,3.17,20978.67,206240.0,165705.09,4717.79,73287.2,27479.7,Network outbound egress bandwidth (bytes/sec)
+cpu_system_time_percent,0.866,0.4718,1.84,13.85,27.0,24.1,10.94,24.7,20.2,CPU execution time in kernel space (%)
+cpu_interrupts_per_sec,0.7378,0.4607,1.6,22552.15,43854.2,38853.9,17525.21,43854.2,30945.8,Hardware interrupt rate (events/sec)
+cpu_ctx_switches_per_sec,0.709,0.4617,1.54,34832.25,77094.2,55711.2,28342.56,77094.2,50854.4,System context switch rate (events/sec)
+net_bytes_recv_per_sec,0.583,0.2639,2.21,567341.12,5344665.0,4952978.0,156847.05,5027350.0,1551869.25,Network inbound ingress bandwidth (bytes/sec)
+net_packets_recv_per_sec,0.556,0.257,2.16,462.13,4187.4,3849.2,147.19,3967.5,1201.1,Network packets received per second (pkts/sec)
+process_count,0.5008,0.5724,0.87,348.59,352.0,351.0,348.09,354.0,352.0,Total active operating system processes
+cpu_freq_current,0.4432,0.5129,0.86,2546.08,2600.0,2600.0,2539.63,2600.0,2600.0,Current CPU clock frequency (MHz)
+disk_read_bytes_per_sec,0.31,0.0986,3.14,166762.7,2178226.5,712470.31,10271.42,2273874.0,16383.0,Disk storage read throughput (bytes/sec)
+disk_usage_percent,0.2425,0.1796,1.35,54.2,54.2,54.2,54.2,54.2,54.2,System primary drive storage capacity utilized (%)
+memory_percent,0.1487,0.1892,0.79,57.58,57.8,57.8,57.36,58.2,57.9,Physical RAM utilization percentage (%)
+memory_available_mb,0.1473,0.1756,0.84,13791.75,13893.8,13857.2,13860.48,14067.8,13991.0,Available physical memory (MB)
+memory_used_mb,0.1407,0.1685,0.83,18717.76,18797.1,18783.9,18649.03,18926.3,18807.3,Allocated physical memory (MB)
+swap_percent,0.0998,0.4836,0.21,4.9,4.9,4.9,4.81,4.9,4.9,Windows page file / swap memory utilization (%)
+net_errors_total,0.0078,0.0077,1.01,0.0,0.0,0.0,0.0,0.0,0.0,Total cumulative network transmission/reception errors
+net_drops_total,0.0024,0.0042,0.57,294.0,294.0,294.0,294.0,294.0,294.0,Total cumulative network packet drop count

@@ -1,0 +1,16 @@
+{
+  "threshold": 1.85945,
+  "percentile": 99.5,
+  "description": "Anomaly score threshold calibrated on normal validation baseline (99.5th percentile)",
+  "n_validation_windows": 481,
+  "min_error": 0.411484,
+  "max_error": 1.99935,
+  "mean_error": 0.945719,
+  "median_error": 0.685435,
+  "std_error": 0.460439,
+  "p90": 1.70302,
+  "p95": 1.759225,
+  "p99": 1.855278,
+  "p99.5": 1.85945,
+  "calibrated_at": "2026-10-02T20:11:17.630677+00:00"
+}

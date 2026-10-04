@@ -39,8 +39,7 @@ class TimeSeriesPreprocessor:
     def handle_missing(self, data: np.ndarray) -> np.ndarray:
         """Forward-fill then backward-fill NaNs."""
         df = pd.DataFrame(data)
-        df.ffill(inplace=True)
-        df.bfill(inplace=True)
+        df = df.ffill().bfill()
         return df.values.astype(np.float32)
 
     def remove_duplicates(

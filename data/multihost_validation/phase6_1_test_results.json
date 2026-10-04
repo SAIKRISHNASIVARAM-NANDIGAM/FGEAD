@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-04T14:59:41Z",
+  "passed": 10,
+  "total": 10,
+  "results": {
+    "1. Windows Host + Windows Model": "PASSED",
+    "2. Linux Host + Windows Model Gated": "PASSED",
+    "3. Unknown OS Gated": "PASSED",
+    "4. Schema Mismatch Rejected": "PASSED",
+    "5. Model & Scaler Verification": "PASSED",
+    "6. Wrong Model Assignment": "PASSED",
+    "7. Constant Feature Difference": "PASSED",
+    "8. Host A/B Buffer Isolation": "PASSED",
+    "9. Duplicate Reconnect Reused": "PASSED",
+    "10. Offline & Recovery Lifecycle": "PASSED"
+  }
+}

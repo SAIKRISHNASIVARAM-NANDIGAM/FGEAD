@@ -1,0 +1,12 @@
+{
+  "smd_mode": true,
+  "live_mode": true,
+  "telemetry": true,
+  "model_loading": true,
+  "inference": true,
+  "xai": true,
+  "episode_tracking": true,
+  "offline_detection": true,
+  "recovery": true,
+  "smd_isolation": true
+}
