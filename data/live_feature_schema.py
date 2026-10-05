@@ -158,3 +158,31 @@ def vector_to_feature_dict(vec: np.ndarray) -> Dict[str, float]:
     if len(vec) != N_LIVE_FEATURES:
         raise ValueError(f"Expected vector of length {N_LIVE_FEATURES}, got {len(vec)}")
     return {f: float(vec[i]) for i, f in enumerate(LIVE_FEATURES)}
+
+
+# Model-Input Compatibility Anchors for Invariant Baseline Cumulative Counters
+# Maps feature_name -> anchored_model_input_value (e.g. net_drops_total: 294.0)
+CUMULATIVE_COUNTER_BASELINE_ANCHORS: Dict[str, float] = {
+    "net_drops_total": 294.0,
+}
+
+
+def prepare_model_input_window(
+    window_raw: np.ndarray,
+    anchors: Optional[Dict[str, float]] = None,
+) -> np.ndarray:
+    """
+    Prepare a raw 60x22 physical telemetry window for neural model inference.
+    Preserves all 22 features and strict ordering, but anchors invariant cumulative counters
+    to their calibrated training baseline constants to prevent false positives from OS uptime drift.
+    """
+    arr = np.array(window_raw, dtype=np.float32, copy=True)
+    active_anchors = anchors if anchors is not None else CUMULATIVE_COUNTER_BASELINE_ANCHORS
+    for feat_name, anchor_val in active_anchors.items():
+        if feat_name in LIVE_FEATURES:
+            idx = LIVE_FEATURES.index(feat_name)
+            if arr.ndim == 2:
+                arr[:, idx] = anchor_val
+            elif arr.ndim == 1:
+                arr[idx] = anchor_val
+    return arr

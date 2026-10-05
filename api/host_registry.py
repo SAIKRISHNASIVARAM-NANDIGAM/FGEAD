@@ -24,7 +24,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "fgead_multihost.db"
+from config.settings import settings
+DEFAULT_DB_PATH = Path(settings.DATABASE_PATH)
 
 
 class HostRegistry:
@@ -32,14 +33,24 @@ class HostRegistry:
     Thread-safe persistent registry for multi-host monitoring in FGEAD.
     """
 
-    def __init__(self, db_path: Optional[Path] = None, offline_timeout_sec: float = 15.0):
+    def __init__(self, db_path: Optional[Path | str] = None, offline_timeout_sec: Optional[float] = None):
         self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
-        self.offline_timeout_sec = offline_timeout_sec
+        self.offline_timeout_sec = offline_timeout_sec if offline_timeout_sec is not None else settings.OFFLINE_TIMEOUT_SEC
         self._lock = threading.RLock()
-        
+
         # Ensure parent directory exists
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
+
+    def is_healthy(self) -> bool:
+        """Check if SQLite database connection and schema are healthy."""
+        try:
+            with self._lock, self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                return cursor.fetchone() is not None
+        except Exception:
+            return False
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path), timeout=10.0, check_same_thread=False)
@@ -111,6 +122,13 @@ class HostRegistry:
                     FOREIGN KEY(host_id) REFERENCES hosts(host_id)
                 )
             """)
+
+            # Unique identity index: Prevents duplicate active registrations for the same physical host + OS
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_hosts_unique_identity
+                ON hosts (LOWER(hostname), LOWER(operating_system))
+                WHERE is_enabled = 1;
+            """)
             conn.commit()
 
     @staticmethod
@@ -131,48 +149,90 @@ class HostRegistry:
     ) -> Tuple[Dict[str, Any], str]:
         """
         Register a new host or re-register an existing host.
-        Reuses existing host_id if matching hostname + OS already registered to prevent duplicates.
-        Enforces appropriate model_status (e.g. BASELINE_REQUIRED for Linux).
+        Reuses existing host_id if matching hostname + OS / machine_id already registered to prevent duplicates.
+        Enforces deterministic canonical host_id generation and model compatibility assignment.
         """
+        import re
         with self._lock:
             now_iso = datetime.now(timezone.utc).isoformat()
             now_epoch = time.time()
             info_json = json.dumps(machine_info or {})
             is_windows = operating_system.strip().lower() == "windows"
+            h_name = hostname.strip()
+            os_name = operating_system.strip()
 
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                
-                # Check for existing host to reuse host_id and prevent duplicate records
-                existing_host_id = None
-                if custom_host_id:
-                    cursor.execute("SELECT host_id FROM hosts WHERE host_id = ?", (custom_host_id,))
-                    row = cursor.fetchone()
-                    if row:
-                        existing_host_id = row["host_id"]
-                else:
-                    cursor.execute(
-                        "SELECT host_id FROM hosts WHERE hostname = ? AND operating_system = ? AND is_enabled = 1 ORDER BY last_seen_epoch DESC",
-                        (hostname, operating_system),
-                    )
-                    row = cursor.fetchone()
-                    if row:
-                        existing_host_id = row["host_id"]
 
-                host_id = custom_host_id or existing_host_id or f"host_{secrets.token_hex(6)}"
-                agent_id = f"agent_{secrets.token_hex(6)}"
+                # Multi-tier deterministic identity matching:
+                existing_row = None
+
+                # Tier 1: Explicit custom_host_id match
+                if custom_host_id:
+                    cursor.execute("SELECT * FROM hosts WHERE host_id = ?", (custom_host_id,))
+                    existing_row = cursor.fetchone()
+
+                # Tier 2: Machine ID (Hardware Node) match
+                if existing_row is None and machine_info and machine_info.get("machine_id"):
+                    m_id = str(machine_info["machine_id"]).strip()
+                    if m_id:
+                        cursor.execute(
+                            "SELECT * FROM hosts WHERE json_extract(machine_info_json, '$.machine_id') = ? AND LOWER(operating_system) = LOWER(?) AND is_enabled = 1 ORDER BY last_seen_epoch DESC",
+                            (m_id, os_name),
+                        )
+                        existing_row = cursor.fetchone()
+
+                # Tier 3: Case-insensitive (hostname, operating_system) match
+                if existing_row is None:
+                    cursor.execute(
+                        "SELECT * FROM hosts WHERE LOWER(hostname) = LOWER(?) AND LOWER(operating_system) = LOWER(?) AND is_enabled = 1 ORDER BY last_seen_epoch DESC",
+                        (h_name, os_name),
+                    )
+                    existing_row = cursor.fetchone()
+
+                if existing_row:
+                    host_id = existing_row["host_id"]
+                    agent_id = existing_row["agent_id"]
+                    # If host was OFFLINE, update to ONLINE / TELEMETRY_ONLY; otherwise preserve status
+                    if existing_row["status"] == "OFFLINE":
+                        status = "ONLINE" if is_windows else "TELEMETRY_ONLY"
+                    else:
+                        status = existing_row["status"]
+                    created_at = existing_row["created_at"]
+                else:
+                    if custom_host_id:
+                        host_id = custom_host_id
+                    else:
+                        # Deterministic canonical ID from normalized hostname
+                        clean_host = re.sub(r"[^a-zA-Z0-9]", "_", h_name.lower()).strip("_")
+                        if not clean_host:
+                            clean_host = "node"
+                        candidate_id = f"host_{clean_host}"
+                        cursor.execute("SELECT host_id FROM hosts WHERE host_id = ?", (candidate_id,))
+                        if cursor.fetchone():
+                            clean_os = re.sub(r"[^a-zA-Z0-9]", "_", os_name.lower()).strip("_")
+                            candidate_id = f"host_{clean_host}_{clean_os}"
+                        host_id = candidate_id
+
+                    agent_id = f"agent_{secrets.token_hex(6)}"
+                    status = "ONLINE" if is_windows else "TELEMETRY_ONLY"
+                    created_at = now_iso
+
                 raw_token = f"fgead_{secrets.token_urlsafe(32)}"
                 token_hash = self._hash_token(raw_token)
 
-                # Assign model and initial status based on OS compatibility
+                # Assign model and initial status based on OS compatibility and host profile
                 if is_windows:
-                    assigned_model_id = model_id or "windows_default"
+                    if host_id == "host_sivachowdary" or h_name.lower() == "sivachowdary":
+                        assigned_model_id = "windows_sivachowdary_v2"
+                    elif model_id and model_id not in ("none", "windows_default"):
+                        assigned_model_id = model_id
+                    else:
+                        assigned_model_id = "windows_default"
                     model_status = "COMPATIBLE"
-                    initial_status = "ONLINE"
                 else:
                     assigned_model_id = "none"
                     model_status = "BASELINE_REQUIRED"
-                    initial_status = "TELEMETRY_ONLY"
 
                 cursor.execute(
                     """
@@ -200,18 +260,18 @@ class HostRegistry:
                     """,
                     (
                         host_id,
-                        hostname,
-                        operating_system,
+                        h_name,
+                        os_name,
                         os_version,
                         architecture,
                         agent_version,
                         schema_version,
                         agent_id,
                         token_hash,
-                        initial_status,
+                        status,
                         assigned_model_id,
                         model_status,
-                        now_iso,
+                        created_at,
                         now_iso,
                         now_epoch,
                         info_json,
@@ -457,7 +517,7 @@ class HostRegistry:
                 )
             else:
                 cursor.execute("SELECT host_id, hostname, operating_system, last_seen_epoch FROM hosts ORDER BY last_seen_epoch DESC")
-            
+
             rows = cursor.fetchall()
             seen_keys = set()
             for r in rows:
@@ -477,9 +537,27 @@ _GLOBAL_REGISTRY: Optional[HostRegistry] = None
 _REGISTRY_LOCK = threading.RLock()
 
 
-def get_host_registry() -> HostRegistry:
+def get_host_registry(db_path: Optional[Path | str] = None, force_new: bool = False) -> HostRegistry:
+    """
+    Retrieve the active thread-safe HostRegistry singleton.
+    Honors FGEAD_DB_PATH environment variable and supports dynamic test database switching.
+    """
     global _GLOBAL_REGISTRY
     with _REGISTRY_LOCK:
-        if _GLOBAL_REGISTRY is None:
-            _GLOBAL_REGISTRY = HostRegistry()
+        if db_path is not None:
+            return HostRegistry(db_path=db_path)
+
+        current_env_db = os.getenv("FGEAD_DB_PATH")
+        target_db = Path(current_env_db) if current_env_db else DEFAULT_DB_PATH
+
+        if _GLOBAL_REGISTRY is None or force_new or _GLOBAL_REGISTRY.db_path != target_db:
+            _GLOBAL_REGISTRY = HostRegistry(db_path=target_db)
         return _GLOBAL_REGISTRY
+
+
+def reset_host_registry(db_path: Optional[Path | str] = None) -> HostRegistry:
+    """Reset the global registry singleton to point to a fresh or specific database path."""
+    global _GLOBAL_REGISTRY
+    with _REGISTRY_LOCK:
+        _GLOBAL_REGISTRY = None
+        return get_host_registry(db_path=db_path)

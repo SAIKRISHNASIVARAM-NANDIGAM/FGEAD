@@ -72,8 +72,11 @@ class LiveTelemetryCollector:
 
     def get_machine_info(self) -> Dict[str, Any]:
         """Return static hardware and environment metadata."""
+        import uuid
+        node_id = hex(uuid.getnode())
         return {
-            "machine_id": self.hostname,
+            "machine_id": f"{self.hostname}_{node_id}",
+            "hardware_node": node_id,
             "hostname": self.hostname,
             "platform": self.platform_name,
             "operating_system": self.platform_name,
@@ -201,12 +204,23 @@ class LiveTelemetryCollector:
         return features
 
 
+DEFAULT_API_URL = os.getenv("FGEAD_API_URL", "http://127.0.0.1:8000")
+DEFAULT_API_KEY = os.getenv("FGEAD_API_SECRET_KEY", os.getenv("FGEAD_API_KEY", None))
+CONFIG_PATH = PROJECT_ROOT / "data" / "live_agent_config.json"
+
+
 def load_or_register_agent(
     api_url: str,
     collector: LiveTelemetryCollector,
     custom_host_id: Optional[str] = None,
+    api_key: Optional[str] = None,
+    force_register: bool = False,
 ) -> Tuple[str, str]:
-    if CONFIG_PATH.exists():
+    """
+    Ensure the agent is registered with the FGEAD backend.
+    Returns: (host_id, agent_token)
+    """
+    if not force_register and CONFIG_PATH.exists():
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -227,7 +241,11 @@ def load_or_register_agent(
         "machine_info": info,
     }
 
-    resp = requests.post(f"{api_url.rstrip('/')}/hosts/register", json=reg_payload, timeout=5.0)
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    resp = requests.post(f"{api_url.rstrip('/')}/hosts/register", json=reg_payload, headers=headers, timeout=5.0)
     if resp.status_code != 200:
         raise RuntimeError(f"Host registration failed: {resp.status_code} {resp.text}")
 
@@ -242,7 +260,15 @@ def load_or_register_agent(
     return host_id, token
 
 
-def run_agent(api_url: str = DEFAULT_API_URL, interval_sec: float = 1.0, max_iterations: Optional[int] = None, use_multihost: bool = True):
+def run_agent(
+    api_url: str = DEFAULT_API_URL,
+    api_key: Optional[str] = DEFAULT_API_KEY,
+    interval_sec: float = 1.0,
+    max_iterations: Optional[int] = None,
+    use_multihost: bool = True,
+    custom_host_id: Optional[str] = None,
+    force_register: bool = False,
+):
     """
     Main loop: collects telemetry every interval_sec and transmits to backend.
     """
@@ -258,6 +284,8 @@ def run_agent(api_url: str = DEFAULT_API_URL, interval_sec: float = 1.0, max_ite
     print(f"Target API   : {api_url}")
     print(f"Sampling     : Every {interval_sec}s")
     print(f"Schema Ver   : {info['schema_version']} ({len(LIVE_FEATURES)} features)")
+    if api_key:
+        print("Auth Mode    : API Key Authenticated")
     print("=" * 70)
 
     host_id = None
@@ -266,9 +294,17 @@ def run_agent(api_url: str = DEFAULT_API_URL, interval_sec: float = 1.0, max_ite
 
     if use_multihost:
         try:
-            host_id, token = load_or_register_agent(api_url=api_url, collector=collector)
+            host_id, token = load_or_register_agent(
+                api_url=api_url,
+                collector=collector,
+                custom_host_id=custom_host_id,
+                api_key=api_key,
+                force_register=force_register,
+            )
             endpoint = f"{api_url.rstrip('/')}/hosts/{host_id}/telemetry"
             headers = {"X-Agent-Token": token, "Content-Type": "application/json"}
+            if api_key:
+                headers["X-API-Key"] = api_key
             print(f"[AUTH] Multi-Host Registered: host_id = {host_id}")
         except Exception as e:
             print(f"[AUTH WARNING] Could not register multi-host: {e}. Falling back to legacy /telemetry.")
@@ -297,6 +333,24 @@ def run_agent(api_url: str = DEFAULT_API_URL, interval_sec: float = 1.0, max_ite
             }
 
             resp = requests.post(endpoint, json=payload, headers=headers, timeout=2.0)
+
+            # Auto re-authenticate if token was invalidated/rejected
+            if resp.status_code in (401, 403) and use_multihost:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] [AUTH] Telemetry authentication failed (HTTP {resp.status_code}). Re-authenticating with backend...")
+                try:
+                    host_id, token = load_or_register_agent(
+                        api_url=api_url,
+                        collector=collector,
+                        custom_host_id=custom_host_id,
+                        api_key=api_key,
+                        force_register=True,
+                    )
+                    headers["X-Agent-Token"] = token
+                    endpoint = f"{api_url.rstrip('/')}/hosts/{host_id}/telemetry"
+                    resp = requests.post(endpoint, json=payload, headers=headers, timeout=2.0)
+                except Exception as auth_exc:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] [AUTH ERROR] Re-registration failed: {auth_exc}")
+
             if resp.status_code == 200:
                 consecutive_failures = 0
                 print(
@@ -329,12 +383,23 @@ def run_agent(api_url: str = DEFAULT_API_URL, interval_sec: float = 1.0, max_ite
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FGEAD Real-Time Host Monitoring Agent")
-    parser.add_argument("--api-url", default=DEFAULT_API_URL, help="FastAPI backend base URL")
+    parser.add_argument("--api-url", default=DEFAULT_API_URL, help="FastAPI backend base URL (e.g. http://127.0.0.1:8000)")
+    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="Optional API Secret Key for host registration")
     parser.add_argument("--interval", type=float, default=1.0, help="Sampling interval in seconds")
     parser.add_argument("--once", action="store_true", help="Collect and send a single sample then exit")
     parser.add_argument("--count", type=int, default=None, help="Number of samples to collect before exiting")
     parser.add_argument("--legacy", action="store_true", help="Use legacy unauthenticated /telemetry endpoint")
+    parser.add_argument("--custom-host-id", type=str, default=None, help="Explicit host identifier")
+    parser.add_argument("--force-register", action="store_true", help="Force re-registration to obtain a fresh agent token")
     args = parser.parse_args()
 
     iters = 1 if args.once else args.count
-    run_agent(api_url=args.api_url, interval_sec=args.interval, max_iterations=iters, use_multihost=not args.legacy)
+    run_agent(
+        api_url=args.api_url,
+        api_key=args.api_key,
+        interval_sec=args.interval,
+        max_iterations=iters,
+        use_multihost=not args.legacy,
+        custom_host_id=args.custom_host_id,
+        force_register=args.force_register,
+    )

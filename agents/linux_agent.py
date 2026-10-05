@@ -61,7 +61,11 @@ class LinuxTelemetryCollector:
 
     def get_machine_info(self) -> Dict[str, Any]:
         """Return static hardware and environment metadata."""
+        import uuid
+        node_id = hex(uuid.getnode())
         return {
+            "machine_id": f"{self.hostname}_{node_id}",
+            "hardware_node": node_id,
             "hostname": self.hostname,
             "operating_system": self.platform_name,
             "os_version": self.os_version,
@@ -187,18 +191,25 @@ class LinuxTelemetryCollector:
         return features
 
 
+DEFAULT_API_URL = os.getenv("FGEAD_API_URL", "http://127.0.0.1:8000")
+DEFAULT_API_KEY = os.getenv("FGEAD_API_SECRET_KEY", os.getenv("FGEAD_API_KEY", None))
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "data" / "linux_agent_config.json"
+
+
 def load_or_register_agent(
     api_url: str,
     collector: LinuxTelemetryCollector,
     config_path: Path = DEFAULT_CONFIG_PATH,
     custom_host_id: Optional[str] = None,
+    api_key: Optional[str] = None,
+    force_register: bool = False,
 ) -> Tuple[str, str]:
     """
     Ensure the agent is registered with the FGEAD backend.
     Returns: (host_id, agent_token)
     """
     config_path = Path(config_path)
-    if config_path.exists():
+    if not force_register and config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -220,7 +231,11 @@ def load_or_register_agent(
         "machine_info": info,
     }
 
-    resp = requests.post(f"{api_url.rstrip('/')}/hosts/register", json=reg_payload, timeout=5.0)
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    resp = requests.post(f"{api_url.rstrip('/')}/hosts/register", json=reg_payload, headers=headers, timeout=5.0)
     if resp.status_code != 200:
         raise RuntimeError(f"Host registration failed: {resp.status_code} {resp.text}")
 
@@ -238,10 +253,12 @@ def load_or_register_agent(
 
 def run_linux_agent(
     api_url: str = DEFAULT_API_URL,
+    api_key: Optional[str] = DEFAULT_API_KEY,
     interval_sec: float = 1.0,
     max_iterations: Optional[int] = None,
     config_path: Path = DEFAULT_CONFIG_PATH,
     custom_host_id: Optional[str] = None,
+    force_register: bool = False,
 ):
     collector = LinuxTelemetryCollector()
     info = collector.get_machine_info()
@@ -253,6 +270,8 @@ def run_linux_agent(
     print(f"OS Platform  : {info['operating_system']} {info['os_version']} ({info['architecture']})")
     print(f"Target API   : {api_url}")
     print(f"Sampling     : Every {interval_sec}s")
+    if api_key:
+        print("Auth Mode    : API Key Authenticated")
     print("=" * 70)
 
     # Register or load token
@@ -262,6 +281,8 @@ def run_linux_agent(
             collector=collector,
             config_path=config_path,
             custom_host_id=custom_host_id,
+            api_key=api_key,
+            force_register=force_register,
         )
         print(f"Registered Host ID: {host_id}")
     except Exception as exc:
@@ -273,6 +294,8 @@ def run_linux_agent(
         "X-Agent-Token": token,
         "Content-Type": "application/json",
     }
+    if api_key:
+        headers["X-API-Key"] = api_key
 
     time.sleep(1.0)
     iteration = 0
@@ -291,6 +314,25 @@ def run_linux_agent(
             }
 
             resp = requests.post(endpoint, json=payload, headers=headers, timeout=2.0)
+
+            # Auto re-authenticate if token was invalidated/rejected
+            if resp.status_code in (401, 403):
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] [AUTH] Telemetry authentication failed (HTTP {resp.status_code}). Re-authenticating with backend...")
+                try:
+                    host_id, token = load_or_register_agent(
+                        api_url=api_url,
+                        collector=collector,
+                        config_path=config_path,
+                        custom_host_id=custom_host_id,
+                        api_key=api_key,
+                        force_register=True,
+                    )
+                    headers["X-Agent-Token"] = token
+                    endpoint = f"{api_url.rstrip('/')}/hosts/{host_id}/telemetry"
+                    resp = requests.post(endpoint, json=payload, headers=headers, timeout=2.0)
+                except Exception as auth_exc:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] [AUTH ERROR] Re-registration failed: {auth_exc}")
+
             if resp.status_code == 200:
                 print(
                     f"[{datetime.now().strftime('%H:%M:%S')}] "
@@ -318,14 +360,18 @@ def run_linux_agent(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FGEAD Linux Telemetry Agent")
     parser.add_argument("--api-url", default=DEFAULT_API_URL, help="FastAPI backend URL")
+    parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="Optional API Secret Key for authentication")
     parser.add_argument("--interval", type=float, default=1.0, help="Sampling interval in seconds")
     parser.add_argument("--host-id", type=str, default=None, help="Custom host ID")
     parser.add_argument("--count", type=int, default=None, help="Number of iterations")
+    parser.add_argument("--force-register", action="store_true", help="Force re-registration to obtain a fresh agent token")
     args = parser.parse_args()
 
     run_linux_agent(
         api_url=args.api_url,
+        api_key=args.api_key,
         interval_sec=args.interval,
         max_iterations=args.count,
         custom_host_id=args.host_id,
+        force_register=args.force_register,
     )

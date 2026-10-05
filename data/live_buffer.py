@@ -60,6 +60,13 @@ class LiveRingBuffer:
             if machine_info:
                 self._machine_info = dict(machine_info)
 
+    def clear(self) -> None:
+        """Clear all buffered telemetry data and reset state."""
+        with self._lock:
+            self._buffer.clear()
+            self._timestamps.clear()
+            self._raw_dicts.clear()
+
     def is_agent_connected(self) -> bool:
         """Check if telemetry was received recently within timeout_sec."""
         with self._lock:

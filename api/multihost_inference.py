@@ -33,10 +33,13 @@ from data.live_feature_schema import (
     LIVE_FEATURE_VERSION,
     N_LIVE_FEATURES,
     format_physical_metric,
+    prepare_model_input_window,
+    CUMULATIVE_COUNTER_BASELINE_ANCHORS,
 )
 from models.fgead import FGEAD
 from api.live_inference import LiveEpisodeTracker
 from api.host_registry import get_host_registry
+from api.deep_explainability import build_deep_human_explanation
 
 
 class ModelProfile:
@@ -60,6 +63,7 @@ class ModelProfile:
         threshold_id: str = "fgead_live_threshold_json",
         profile_type: str = "shared baseline model",
         is_universal: bool = False,
+        anchor_names: Optional[List[str]] = None,
         device: str = "cpu",
     ):
         self.profile_id = profile_id
@@ -77,6 +81,7 @@ class ModelProfile:
         self.threshold_id = threshold_id
         self.profile_type = profile_type
         self.is_universal = is_universal
+        self.anchor_names = anchor_names
         self.device = device
 
         self.model: Optional[FGEAD] = None
@@ -101,6 +106,19 @@ class ModelProfile:
 
             # Load scaler
             self.scaler = joblib.load(self.scaler_path)
+
+            # Determine profile baseline anchors for cumulative counters / baseline calibration
+            self.anchors: Dict[str, float] = {}
+            target_anchors = list(self.anchor_names) if self.anchor_names is not None else list(CUMULATIVE_COUNTER_BASELINE_ANCHORS.keys())
+            if hasattr(self.scaler, "mean_"):
+                for anchor_feat in target_anchors:
+                    if anchor_feat in LIVE_FEATURES:
+                        a_idx = LIVE_FEATURES.index(anchor_feat)
+                        self.anchors[anchor_feat] = float(self.scaler.mean_[a_idx])
+            else:
+                for anchor_feat in target_anchors:
+                    if anchor_feat in CUMULATIVE_COUNTER_BASELINE_ANCHORS:
+                        self.anchors[anchor_feat] = float(CUMULATIVE_COUNTER_BASELINE_ANCHORS[anchor_feat])
 
             # Load model
             ckpt = torch.load(str(self.checkpoint_path), map_location=self.device, weights_only=False)
@@ -175,16 +193,16 @@ class MultiHostInferenceManager:
             except Exception:
                 pass
 
-        # Windows Default Shared Baseline Model (NOT universal)
+        # Windows Default Shared Baseline Model (Original Benchmark Model, preserved untouched)
         win_profile = ModelProfile(
             profile_id="windows_default",
-            name="FGEAD Windows 22-Channel Live Model",
+            name="FGEAD Windows 22-Channel Live Model (Original Benchmark)",
             checkpoint_path=ckpt_path,
             scaler_path=scaler_path,
             config_path=config_path,
             threshold=threshold_val,
             supported_os=["Windows"],
-            training_host_type="Windows physical host",
+            training_host_type="Windows physical host (Benchmark machine)",
             training_baseline_id="live_baseline_60min_windows",
             feature_schema_version="1.0",
             scaler_id="fgead_live_scaler_joblib",
@@ -195,6 +213,42 @@ class MultiHostInferenceManager:
         )
         self.profiles["windows_default"] = win_profile
         self.profiles["fgead_live_windows_22ch"] = win_profile
+
+        # Windows SivaChowdary Dedicated Current-Machine Model (v2)
+        ckpt_v2 = PROJECT_ROOT / "checkpoints" / "fgead_live_windows_22ch_v2_current_machine.pt"
+        scaler_v2 = PROJECT_ROOT / "checkpoints" / "fgead_live_scaler_v2_current_machine.joblib"
+        config_v2 = PROJECT_ROOT / "checkpoints" / "fgead_live_windows_22ch_config_v2_current_machine.json"
+        thresh_v2_path = PROJECT_ROOT / "checkpoints" / "fgead_live_threshold_v2_current_machine.json"
+        thresh_v2_val = 1.411807
+        if thresh_v2_path.exists():
+            try:
+                with open(thresh_v2_path, "r", encoding="utf-8") as f:
+                    t2_data = json.load(f)
+                    thresh_v2_val = float(t2_data.get("threshold", 1.411807))
+            except Exception:
+                pass
+
+        if ckpt_v2.exists() and scaler_v2.exists():
+            v2_profile = ModelProfile(
+                profile_id="windows_sivachowdary_v2",
+                name="FGEAD Windows 22-Channel Live Model (v2 Current-Machine)",
+                checkpoint_path=ckpt_v2,
+                scaler_path=scaler_v2,
+                config_path=config_v2,
+                threshold=thresh_v2_val,
+                supported_os=["Windows"],
+                training_host_type="SivaChowdary Windows 11 Physical PC",
+                training_baseline_id="live_baseline_v2_current_machine",
+                feature_schema_version="1.0",
+                scaler_id="fgead_live_scaler_v2_current_machine_joblib",
+                threshold_id="fgead_live_threshold_v2_current_machine_json",
+                profile_type="dedicated host model",
+                is_universal=False,
+                anchor_names=["net_drops_total", "cpu_ctx_switches_per_sec", "cpu_system_time_percent", "cpu_user_time_percent", "process_count"],
+                device=self.device,
+            )
+            self.profiles["windows_sivachowdary_v2"] = v2_profile
+            self.profiles["fgead_live_windows_22ch_v2_current_machine"] = v2_profile
 
     def get_profile(self, profile_id: str) -> Optional[ModelProfile]:
         with self._lock:
@@ -321,9 +375,10 @@ class MultiHostInferenceManager:
         if window_raw.ndim != 2 or window_raw.shape != (60, N_LIVE_FEATURES):
             raise ValueError(f"Expected window shape (60, {N_LIVE_FEATURES}), got {window_raw.shape}")
 
-        # 1. Scale window
+        # 1. Scale window (with baseline anchor for invariant cumulative counters)
         try:
-            window_scaled = profile.scaler.transform(window_raw)
+            model_input_raw = prepare_model_input_window(window_raw, anchors=getattr(profile, "anchors", None))
+            window_scaled = profile.scaler.transform(model_input_raw)
         except Exception as sc_err:
             raise RuntimeError(f"StandardScaler transform failed: {sc_err}")
 
@@ -339,6 +394,12 @@ class MultiHostInferenceManager:
             
             # Per-feature residuals
             feat_residuals = np.mean(np.abs(preds_norm[0].cpu().numpy() - x_tensor[0, 1:].cpu().numpy()), axis=0)
+
+            # Zero out anchored features so they cannot become anomaly evidence
+            for anchor_feat in getattr(profile, "anchors", {}):
+                if anchor_feat in LIVE_FEATURES:
+                    a_idx = LIVE_FEATURES.index(anchor_feat)
+                    feat_residuals[a_idx] = 0.0
 
         # 4. Threshold & Decision
         is_anomaly = anomaly_score >= profile.threshold
@@ -392,6 +453,14 @@ class MultiHostInferenceManager:
             except Exception:
                 pass
 
+        # Debug diagnostics
+        drops_idx = LIVE_FEATURES.index("net_drops_total") if "net_drops_total" in LIVE_FEATURES else -1
+        phys_drops = float(window_raw[-1, drops_idx]) if drops_idx >= 0 else 0.0
+        model_drops = float(model_input_raw[-1, drops_idx]) if drops_idx >= 0 else 0.0
+        b_mean = float(profile.scaler.mean_[drops_idx]) if (profile.scaler is not None and hasattr(profile.scaler, "mean_") and drops_idx >= 0) else 294.0
+        b_std = float(profile.scaler.scale_[drops_idx]) if (profile.scaler is not None and hasattr(profile.scaler, "scale_") and drops_idx >= 0) else 1.0
+        drops_res = float(feat_residuals[drops_idx]) if drops_idx >= 0 else 0.0
+
         # 8. Episode Tracker & Alerting
         tracker = self.get_episode_tracker(host_id)
         ep_id, is_newly_opened = tracker.update(
@@ -432,9 +501,23 @@ class MultiHostInferenceManager:
         q2_which = f"Top deviation driven by '{top_f1['feature']}' ({top_f1['formatted_value']}) and '{top_f2['feature']}' ({top_f2['formatted_value']})."
         q3_how = f"Cross-metric feature graph indicates correlation divergence in {top_f1['feature']} relative to its peer cluster."
         q4_when = f"Window span: 60s history ending at {ts_now}."
-        q5_conf = f"{min(99.9, max(50.0, ratio * 55.0)):.1f}% confidence based on empirical residual deviations."
+        ev_strength = "High" if ratio >= 1.5 else "Moderate" if ratio >= 1.0 else "Nominal"
+        q5_conf = f"Evidence strength: {ev_strength} (Anomaly score is {ratio:.2f}x of calibrated baseline threshold {profile.threshold:.4f})."
 
         latency_ms = (time.perf_counter() - t0) * 1000.0
+
+        # 10. Deep Human-Understandable Explainability
+        ep_status = tracker.get_status()
+        decision_state = ep_status.get("decision_state", "ANOMALY" if is_anomaly else "NORMAL")
+        deep_explanation = build_deep_human_explanation(
+            state=decision_state,
+            anomaly_score=anomaly_score,
+            threshold=profile.threshold,
+            top_features=top_features,
+            timestamp_iso=ts_now,
+            episode_info=ep_status,
+            host_id=host_id,
+        )
 
         result = {
             "host_id": host_id,
@@ -458,6 +541,8 @@ class MultiHostInferenceManager:
                 "Q4_when_did_it_occur": q4_when,
                 "Q5_detection_confidence": q5_conf,
             },
+            "human_explanation": deep_explanation,
+            "deep_explanation": deep_explanation,
             "latency_ms": round(latency_ms, 2),
         }
 
@@ -487,6 +572,14 @@ class MultiHostInferenceManager:
     def get_score_history(self, host_id: str) -> List[Dict[str, Any]]:
         with self._lock:
             return list(self._score_histories.get(host_id, []))
+
+    def reset_host_state(self, host_id: str) -> None:
+        """Clear in-memory episode state and score history for a host."""
+        with self._lock:
+            self._episode_trackers[host_id] = LiveEpisodeTracker(debounce_frames=2)
+            self._score_histories[host_id] = []
+            if host_id in self._latest_inferences:
+                del self._latest_inferences[host_id]
 
 
 # Singleton instance

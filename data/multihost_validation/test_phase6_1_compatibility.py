@@ -82,6 +82,9 @@ def generate_valid_features(row_idx: int = 150) -> dict:
     }
 
 
+from data.multihost_validation.test_db_helper import IsolatedTestDatabase
+
+
 def run_phase6_1_tests() -> bool:
     print("=" * 80)
     print("FGEAD PHASE 6.1 — MODEL COMPATIBILITY & CROSS-HOST VALIDATION SUITE")
@@ -89,7 +92,7 @@ def run_phase6_1_tests() -> bool:
 
     results = {}
 
-    with TestClient(app) as client:
+    with IsolatedTestDatabase(prefix="phase6_1_test_"), TestClient(app) as client:
         # ---------------------------------------------------------------------
         # TEST 1: Windows host + Windows model -> Compatibility PASS, inference allowed
         # ---------------------------------------------------------------------

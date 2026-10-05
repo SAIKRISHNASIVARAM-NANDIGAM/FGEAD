@@ -37,6 +37,14 @@ from data.live_feature_schema import (
     LIVE_FEATURES,
     format_physical_metric,
 )
+from api.deep_explainability import (
+    FEATURE_HUMAN_NAMES,
+    SUBSYSTEM_HUMAN_NAMES,
+    FEATURE_INVESTIGATION_HINTS,
+    DISCLAIMER_TEXT,
+    get_feature_human_name,
+    build_deep_human_explanation,
+)
 
 
 
@@ -73,7 +81,7 @@ st.set_page_config(
 # API ENDPOINT DEFINITION
 # ============================================================================
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.getenv("FASTAPI_URL", "http://127.0.0.1:8000")
 
 # ============================================================================
 # GOOGLE STITCH-INSPIRED LIGHT ACADEMIC THEME STYLING
@@ -1508,11 +1516,11 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
                 ep_str = "—"
             elif score is not None:
                 score_str = f"{score:.4f}"
-                thresh_str = f"{thresh:.4f}" if thresh else "1.859450"
+                thresh_str = f"{thresh:.4f}" if thresh else "—"
                 ep_str = f"Active (#{ep})" if ep else "—"
             elif status == "ONLINE":
                 score_str = f"Buffering ({buf_sz}/60)"
-                thresh_str = f"{thresh:.4f}" if thresh else "1.859450"
+                thresh_str = f"{thresh:.4f}" if thresh else "—"
                 ep_str = "—"
             else:
                 score_str = "—"
@@ -1587,6 +1595,203 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
     if auto_refresh:
         time.sleep(1.5)
         st.rerun()
+
+
+def render_deep_human_explainability_panel(
+    human_exp: Dict[str, Any],
+    explanation_5q: Dict[str, Any],
+    top_feats: List[Dict[str, Any]],
+    broken_pairs: List[Dict[str, Any]],
+    score: float,
+    threshold: float,
+    ratio: float,
+    severity: str,
+    is_anomaly: bool,
+):
+    """
+    Renders Deep Human-Understandable Explainability interface adhering strictly to
+    the 16 explainability principles and progressive disclosure architecture.
+    """
+    state = human_exp.get("state", "ANOMALY" if is_anomaly else "NORMAL")
+    headline = human_exp.get("headline", "System telemetry evaluation")
+    what_happened = human_exp.get("what_happened", "")
+    why_detected = human_exp.get("why_detected", "")
+    what_changed_table = human_exp.get("what_changed_table", [])
+    top_contributors = human_exp.get("top_contributors", [])
+    why_anomaly = human_exp.get("why_this_is_an_anomaly", "")
+    severity_text = human_exp.get("severity_text", f"Severity: {severity}")
+    suggestions = human_exp.get("investigation_suggestions", [])
+    disclaimer = human_exp.get("disclaimer", DISCLAIMER_TEXT)
+
+    # 1. Summary Card & Plain-English Headline
+    border_color = "#dc2626" if is_anomaly else "#0284c7" if state == "SUSPICIOUS" else "#16a34a"
+    icon = "🚨" if is_anomaly else "🔍" if state == "SUSPICIOUS" else "🟢"
+    card_title = "Plain-English Anomaly Explanation (XAI)" if is_anomaly else "Plain-English System Status & Explainability (XAI)"
+
+    render_html(
+        f"""
+        <div class="stitch-card" style="border-left: 5px solid {border_color}; margin-bottom: 16px;">
+            <div class="stitch-card-header" style="color: {'#991b1b' if is_anomaly else '#0f172a'};">
+                {icon} {card_title}
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin-bottom: 8px;">
+                {headline}
+            </div>
+            <div style="font-size: 0.90rem; color: #334155; line-height: 1.6; margin-bottom: 12px;">
+                <strong>What happened:</strong> {what_happened}
+            </div>
+            <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px;">
+                <div style="font-size: 0.75rem; font-weight: 700; color: #1e3a8a; text-transform: uppercase;">Why was it detected?</div>
+                <div style="font-size: 0.88rem; color: #1e293b; margin-top: 3px; line-height: 1.5;">{why_detected}</div>
+            </div>
+        """
+    )
+
+    if is_anomaly:
+        render_html(
+            f"""
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px; padding: 10px 14px;">
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #991b1b; text-transform: uppercase;">Why this is an anomaly</div>
+                    <div style="font-size: 0.84rem; color: #7f1d1d; margin-top: 3px; line-height: 1.5;">{why_anomaly}</div>
+                </div>
+                <div style="background-color: #fff7ed; border-left: 4px solid #f97316; border-radius: 4px; padding: 10px 14px;">
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #9a3412; text-transform: uppercase;">Severity Assessment</div>
+                    <div style="font-size: 0.84rem; color: #7c2d12; margin-top: 3px; line-height: 1.5; white-space: pre-line;">{severity_text}</div>
+                </div>
+            </div>
+            """
+        )
+
+    # Practical Investigation Suggestions Checklist
+    if suggestions:
+        hint_items = "".join([f"<li style='margin-bottom: 4px;'>{s}</li>" for s in suggestions])
+        render_html(
+            f"""
+            <div style="background-color: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px;">
+                <div style="font-size: 0.75rem; font-weight: 700; color: #166534; text-transform: uppercase;">💡 Recommended Investigation Checklist:</div>
+                <ul style="font-size: 0.85rem; color: #14532d; margin-top: 4px; margin-bottom: 0; padding-left: 18px; line-height: 1.5;">
+                    {hint_items}
+                </ul>
+            </div>
+            """
+        )
+
+    # Disclaimer
+    if is_anomaly:
+        render_html(
+            f"""
+            <div style="font-size: 0.78rem; color: #64748b; font-style: italic; border-top: 1px dashed #e2e8f0; padding-top: 8px;">
+                ℹ️ <strong>Note:</strong> {disclaimer}
+            </div>
+            """
+        )
+
+    render_html("</div>")
+
+    # 2. What Changed Comparison Table (Section C)
+    if what_changed_table and is_anomaly:
+        render_html(
+            """
+            <div class="stitch-card" style="margin-bottom: 16px;">
+                <div class="stitch-card-header">
+                    📊 What Changed? (Learned Normal vs. Current Behavior)
+                </div>
+            """
+        )
+        df_change = pd.DataFrame(what_changed_table)
+        df_display = df_change.rename(columns={
+            "measurement": "Measurement",
+            "normal_behavior": "Normal Behavior (Expected)",
+            "current_behavior": "Current Behavior (Observed)",
+            "difference": "Difference",
+            "meaning": "Meaning / Impact",
+        })[["Measurement", "Normal Behavior (Expected)", "Current Behavior (Observed)", "Difference", "Meaning / Impact"]]
+        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        render_html("</div>")
+
+    # 3. Deep Contributor Breakdown (Section E)
+    if top_contributors and is_anomaly:
+        render_html(
+            """
+            <div class="stitch-card" style="margin-bottom: 16px;">
+                <div class="stitch-card-header">
+                    🔍 Deep Root-Cause Contributor Breakdown
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+            """
+        )
+        for c in top_contributors:
+            render_html(
+                f"""
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+                            #{c['rank']} {c['feature_human_name']}
+                        </span>
+                        <code style="font-size: 0.78rem; color: #64748b; background-color: #e2e8f0; padding: 2px 6px; border-radius: 3px;">{c['technical_key']}</code>
+                    </div>
+                    <div style="font-size: 0.84rem; color: #475569; margin-bottom: 8px;">
+                        <em>{c['what_it_means']}</em>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; font-size: 0.82rem; color: #334155; margin-bottom: 8px;">
+                        <div><strong>Normal Expected:</strong> {c['normally_expected']}</div>
+                        <div><strong>Observed Value:</strong> <span style="color: #dc2626; font-weight: 600;">{c['observed_value']}</span></div>
+                        <div><strong>Difference:</strong> {c['difference_factor']}</div>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #1e293b; line-height: 1.4; border-top: 1px dashed #cbd5e1; padding-top: 6px;">
+                        <strong>Why it contributed:</strong> {c['why_it_contributed']}
+                    </div>
+                </div>
+                """
+            )
+        render_html("</div></div>")
+
+    # 4. Technical Details Expander (Progressive Disclosure - Section 9)
+    with st.expander("🔬 Technical Model Details (For ML Engineers & System Examiners)", expanded=False):
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            st.markdown(f"**Anomaly Score:** `{score:.6f}`")
+            st.markdown(f"**Calibrated Threshold (&tau;):** `{threshold:.6f}`")
+            st.markdown(f"**Score / Threshold Ratio:** `{ratio:.2f}×`")
+        with col_t2:
+            st.markdown(f"**Decision State:** `{state}`")
+            st.markdown(f"**Active Episode:** `#{human_exp.get('technical_details', {}).get('active_episode_id', 1)}`")
+            st.markdown(f"**Episode Duration:** `{human_exp.get('technical_details', {}).get('episode_duration_sec', 1)} seconds`")
+
+        # 5-Question Technical Narrative
+        if explanation_5q:
+            st.markdown("##### 5-Question Technical Synthesis")
+            for k, v in explanation_5q.items():
+                clean_k = k.replace("Q1_", "Q1: ").replace("Q2_", "Q2: ").replace("Q3_", "Q3: ").replace("Q4_", "Q4: ").replace("Q5_", "Q5: ").replace("_", " ").title()
+                st.markdown(f"- **{clean_k}:** {v}")
+
+        # Standardized Residuals Table
+        if top_feats:
+            st.markdown("##### Top Feature Standardized Residuals")
+            top_rows = []
+            for rank, tf in enumerate(top_feats, start=1):
+                top_rows.append({
+                    "Rank": f"#{rank}",
+                    "Feature": tf.get("feature", ""),
+                    "Actual Value": tf.get("formatted_value", ""),
+                    "Standardized Residual": f"{tf.get('residual', 0.0):.4f}",
+                    "Description": tf.get("description", ""),
+                })
+            st.dataframe(pd.DataFrame(top_rows), use_container_width=True, hide_index=True)
+
+        # Graph Dependency Disruptions
+        if broken_pairs:
+            st.markdown("##### Metric Dependency Disruption Graph (GNN Attention Weights)")
+            bp_rows = []
+            for bp in broken_pairs[:5]:
+                bp_rows.append({
+                    "Source Metric": bp.get("source", ""),
+                    "Target Metric": bp.get("target", ""),
+                    "Attention Weight": f"{bp.get('weight', 0.0):.4f}",
+                    "Status": bp.get("status", ""),
+                })
+            st.dataframe(pd.DataFrame(bp_rows), use_container_width=True, hide_index=True)
 
 
 def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
@@ -1913,77 +2118,48 @@ def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
                 """
             )
 
-        # 5. XAI 5 QUESTIONS
-        render_html(
-            f"""
-            <div class="stitch-card" style="margin-bottom: 16px;">
-                <div class="stitch-card-header">
-                    💡 5-Question Root-Cause Explainability (XAI)
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
-                    <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; border-radius: 4px; padding: 10px 14px;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #1e3a8a; text-transform: uppercase;">Q1: WHAT HAPPENED?</div>
-                        <div style="font-size: 0.88rem; color: #1e293b; margin-top: 2px;">{explanation.get('Q1_what_happened', '')}</div>
-                    </div>
-                    <div style="background-color: #f8fafc; border-left: 4px solid #0284c7; border-radius: 4px; padding: 10px 14px;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #0369a1; text-transform: uppercase;">Q2: WHICH METRICS DEVIATED?</div>
-                        <div style="font-size: 0.88rem; color: #1e293b; margin-top: 2px;">{explanation.get('Q2_which_metrics_deviated', '')}</div>
-                    </div>
-                    <div style="background-color: #f8fafc; border-left: 4px solid #7c3aed; border-radius: 4px; padding: 10px 14px;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #6d28d9; text-transform: uppercase;">Q3: HOW DID METRIC RELATIONSHIPS ALTER?</div>
-                        <div style="font-size: 0.88rem; color: #1e293b; margin-top: 2px;">{explanation.get('Q3_how_metrics_interacted', '')}</div>
-                    </div>
-                    <div style="background-color: #f8fafc; border-left: 4px solid #059669; border-radius: 4px; padding: 10px 14px;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #047857; text-transform: uppercase;">Q4: WHEN DID IT OCCUR?</div>
-                        <div style="font-size: 0.88rem; color: #1e293b; margin-top: 2px;">{explanation.get('Q4_when_did_it_occur', '')}</div>
-                    </div>
-                    <div style="background-color: #f8fafc; border-left: 4px solid #ea580c; border-radius: 4px; padding: 10px 14px;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #c2410c; text-transform: uppercase;">Q5: DETECTION CONFIDENCE</div>
-                        <div style="font-size: 0.88rem; color: #1e293b; margin-top: 2px;">{explanation.get('Q5_detection_confidence', '')}</div>
-                    </div>
-                </div>
-            </div>
-            """
+        # 5. DEEP HUMAN-UNDERSTANDABLE EXPLAINABILITY & PROGRESSIVE DISCLOSURE
+        human_exp = inf.get("human_explanation") or inf.get("deep_explanation") or build_deep_human_explanation(
+            state="ANOMALY" if is_anom else "NORMAL",
+            anomaly_score=score,
+            threshold=tau,
+            top_features=top_feats,
+            timestamp_iso=inf.get("timestamp", ""),
+            episode_info=ep_status,
+            host_id=host_id,
         )
+        tech_exp = inf.get("xai_5_questions", {})
+        broken_pairs = inf.get("broken_pairs", [])
 
-        # 6. TOP CONTRIBUTING FEATURES TABLE
-        if top_feats:
-            render_html(
-                """
-                <div class="stitch-card" style="margin-bottom: 16px;">
-                    <div class="stitch-card-header">
-                        🔍 Top Contributing Telemetry Metrics
-                    </div>
-                """
-            )
-            top_rows = []
-            for rank, tf in enumerate(top_feats, start=1):
-                top_rows.append({
-                    "Rank": f"#{rank}",
-                    "Feature": tf.get("feature", ""),
-                    "Actual Value": tf.get("formatted_value", ""),
-                    "Standardized Residual": f"{tf.get('residual', 0.0):.4f}",
-                    "Description": tf.get("description", "")
-                })
-            st.dataframe(pd.DataFrame(top_rows), use_container_width=True, hide_index=True)
-            render_html("</div>")
+        render_deep_human_explainability_panel(
+            human_exp=human_exp,
+            explanation_5q=tech_exp,
+            top_feats=top_feats,
+            broken_pairs=broken_pairs,
+            score=score,
+            threshold=tau,
+            ratio=ratio,
+            severity=sev,
+            is_anomaly=is_anom,
+        )
 
     # 7. ANOMALY SCORE TIMELINE
     if live_analysis:
         score_hist = live_analysis.get("score_history", [])
         if score_hist:
+            active_tau = live_analysis.get("latest_inference", {}).get("threshold", 1.411807 if "v2" in str(live_analysis.get("latest_inference", {}).get("model_id", "")) else 1.859450)
             render_html(
-                """
+                f"""
                 <div class="stitch-card">
                     <div class="stitch-card-header">
-                        📈 Host Anomaly Score vs. Calibrated Baseline Threshold (τ = 1.859450)
+                        📈 Host Anomaly Score vs. Calibrated Baseline Threshold (τ = {active_tau:.6f})
                     </div>
                     <div style="font-size: 0.82rem; color: #64748b; margin-bottom: 10px;">
                         Continuous sliding window evaluations for this specific host. Points above the red dashed line indicate anomalies.
                     </div>
                 """
             )
-            fig_sc = plot_live_anomaly_score_timeline(score_hist, 1.859450)
+            fig_sc = plot_live_anomaly_score_timeline(score_hist, active_tau)
             st.plotly_chart(fig_sc, use_container_width=True)
             render_html("</div>")
 
@@ -2142,7 +2318,7 @@ def main():
                 <div>Fleet: <strong>Multi-Host Telemetry</strong></div>
                 <div>OS: <strong>Windows & Linux</strong></div>
                 <div>Model: <strong>22-Feature Spatio-Temporal</strong></div>
-                <div>Threshold: <strong>τ = 1.859450</strong></div>
+                <div>Threshold: <strong>Dynamic Host Calibrated</strong></div>
             </div>
             """,
             in_sidebar=True
@@ -3176,13 +3352,13 @@ def render_about_page(health_info: Dict[str, Any]):
 def show_offline_screen():
     """Display clean instructions when FastAPI backend is offline."""
     render_html(
-        """
+        f"""
         <div style="text-align: center; padding: 40px 20px; max-width: 600px; margin: 0 auto;">
             <div style="font-family: 'Outfit', sans-serif; font-size: 2rem; font-weight: 700; color: #dc2626; margin-bottom: 8px;">
                 FastAPI Backend Disconnected
             </div>
             <div style="font-size: 0.95rem; color: #64748b; margin-bottom: 24px;">
-                The FGEAD dashboard cannot establish an HTTP connection with the REST API server at <code>http://127.0.0.1:8000</code>.
+                The FGEAD dashboard cannot establish an HTTP connection with the REST API server at <code>{API_URL}</code>.
             </div>
 
             <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: left; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">

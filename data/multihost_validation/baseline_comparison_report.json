@@ -1,0 +1,574 @@
+{
+  "cpu_percent": {
+    "index": 0,
+    "feature_name": "cpu_percent",
+    "old_baseline": {
+      "mean": 16.2021,
+      "std": 5.6841,
+      "min": 4.8,
+      "max": 47.0,
+      "unique": 285
+    },
+    "new_baseline": {
+      "mean": 51.0972,
+      "median": 50.84,
+      "std": 7.6166,
+      "min": 22.49,
+      "max": 79.4,
+      "p25": 46.02,
+      "p50": 50.84,
+      "p75": 56.0525,
+      "p95": 64.404,
+      "p99": 69.5104,
+      "unique": 2084,
+      "cv": 0.1491
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "cpu_freq_current": {
+    "index": 1,
+    "feature_name": "cpu_freq_current",
+    "old_baseline": {
+      "mean": 2523.64,
+      "std": 280.1649,
+      "min": 1496.0,
+      "max": 2600.0,
+      "unique": 2
+    },
+    "new_baseline": {
+      "mean": 1968.1961,
+      "median": 1967.475,
+      "std": 50.3336,
+      "min": 1793.74,
+      "max": 2158.03,
+      "p25": 1934.73,
+      "p50": 1967.475,
+      "p75": 2002.0575,
+      "p95": 2051.1955,
+      "p99": 2088.0331,
+      "unique": 3251,
+      "cv": 0.0256
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "cpu_user_time_percent": {
+    "index": 2,
+    "feature_name": "cpu_user_time_percent",
+    "old_baseline": {
+      "mean": 4.488,
+      "std": 2.3451,
+      "min": 1.1,
+      "max": 23.3,
+      "unique": 152
+    },
+    "new_baseline": {
+      "mean": 5.4393,
+      "median": 5.405,
+      "std": 2.6714,
+      "min": 0.0,
+      "max": 14.62,
+      "p25": 3.4875,
+      "p50": 5.405,
+      "p75": 7.26,
+      "p95": 10.02,
+      "p99": 11.8205,
+      "unique": 1052,
+      "cv": 0.4911
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "cpu_system_time_percent": {
+    "index": 3,
+    "feature_name": "cpu_system_time_percent",
+    "old_baseline": {
+      "mean": 11.0159,
+      "std": 4.646,
+      "min": 2.7,
+      "max": 29.2,
+      "unique": 224
+    },
+    "new_baseline": {
+      "mean": 45.5086,
+      "median": 45.53,
+      "std": 2.0399,
+      "min": 36.93,
+      "max": 52.78,
+      "p25": 44.19,
+      "p50": 45.53,
+      "p75": 46.89,
+      "p95": 48.77,
+      "p99": 50.1101,
+      "unique": 891,
+      "cv": 0.0448
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "cpu_ctx_switches_per_sec": {
+    "index": 4,
+    "feature_name": "cpu_ctx_switches_per_sec",
+    "old_baseline": {
+      "mean": 29181.7572,
+      "std": 13399.799,
+      "min": 10163.1,
+      "max": 82181.5,
+      "unique": 3576
+    },
+    "new_baseline": {
+      "mean": 31754.7973,
+      "median": 31745.76,
+      "std": 9428.7157,
+      "min": 1814.01,
+      "max": 62054.52,
+      "p25": 25229.135,
+      "p50": 31745.76,
+      "p75": 38460.1475,
+      "p95": 46927.739,
+      "p99": 52355.2995,
+      "unique": 3599,
+      "cv": 0.2969
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "cpu_interrupts_per_sec": {
+    "index": 5,
+    "feature_name": "cpu_interrupts_per_sec",
+    "old_baseline": {
+      "mean": 18499.2496,
+      "std": 8456.8225,
+      "min": 6038.3,
+      "max": 57418.0,
+      "unique": 3564
+    },
+    "new_baseline": {
+      "mean": 14340.2881,
+      "median": 14379.675,
+      "std": 3012.7583,
+      "min": 2607.13,
+      "max": 23993.27,
+      "p25": 12411.0375,
+      "p50": 14379.675,
+      "p75": 16366.4775,
+      "p95": 19101.896,
+      "p99": 21272.7632,
+      "unique": 3595,
+      "cv": 0.2101
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "memory_percent": {
+    "index": 6,
+    "feature_name": "memory_percent",
+    "old_baseline": {
+      "mean": 59.1977,
+      "std": 1.8394,
+      "min": 56.4,
+      "max": 64.2,
+      "unique": 73
+    },
+    "new_baseline": {
+      "mean": 74.6324,
+      "median": 74.59,
+      "std": 1.6145,
+      "min": 69.74,
+      "max": 80.01,
+      "p25": 73.52,
+      "p50": 74.59,
+      "p75": 75.68,
+      "p95": 77.38,
+      "p99": 78.4201,
+      "unique": 730,
+      "cv": 0.0216
+    },
+    "shift_type": "CRITICAL SHIFT (False-Positive Cause)"
+  },
+  "memory_available_mb": {
+    "index": 7,
+    "feature_name": "memory_available_mb",
+    "old_baseline": {
+      "mean": 13264.6284,
+      "std": 597.3597,
+      "min": 11649.4,
+      "max": 14175.9,
+      "unique": 2905
+    },
+    "new_baseline": {
+      "mean": 8263.4164,
+      "median": 8265.815,
+      "std": 402.9791,
+      "min": 6854.41,
+      "max": 9528.95,
+      "p25": 7984.805,
+      "p50": 8265.815,
+      "p75": 8546.195,
+      "p95": 8922.921,
+      "p99": 9181.2186,
+      "unique": 3548,
+      "cv": 0.0488
+    },
+    "shift_type": "CRITICAL SHIFT (False-Positive Cause)"
+  },
+  "memory_used_mb": {
+    "index": 8,
+    "feature_name": "memory_used_mb",
+    "old_baseline": {
+      "mean": 19244.8831,
+      "std": 597.3597,
+      "min": 18333.7,
+      "max": 20860.1,
+      "unique": 2919
+    },
+    "new_baseline": {
+      "mean": 24202.6456,
+      "median": 24196.585,
+      "std": 407.1323,
+      "min": 22861.4,
+      "max": 25627.01,
+      "p25": 23920.5375,
+      "p50": 24196.585,
+      "p75": 24478.0625,
+      "p95": 24887.2425,
+      "p99": 25190.0403,
+      "unique": 3561,
+      "cv": 0.0168
+    },
+    "shift_type": "CRITICAL SHIFT (False-Positive Cause)"
+  },
+  "swap_percent": {
+    "index": 9,
+    "feature_name": "swap_percent",
+    "old_baseline": {
+      "mean": 4.7386,
+      "std": 0.1956,
+      "min": 4.2,
+      "max": 4.9,
+      "unique": 5
+    },
+    "new_baseline": {
+      "mean": 2.7117,
+      "median": 2.7,
+      "std": 0.4828,
+      "min": 1.27,
+      "max": 4.5,
+      "p25": 2.38,
+      "p50": 2.7,
+      "p75": 3.04,
+      "p95": 3.51,
+      "p99": 3.9,
+      "unique": 264,
+      "cv": 0.1781
+    },
+    "shift_type": "CRITICAL SHIFT (False-Positive Cause)"
+  },
+  "disk_usage_percent": {
+    "index": 10,
+    "feature_name": "disk_usage_percent",
+    "old_baseline": {
+      "mean": 54.1483,
+      "std": 0.0544,
+      "min": 54.1,
+      "max": 54.3,
+      "unique": 3
+    },
+    "new_baseline": {
+      "mean": 55.0213,
+      "median": 55.02,
+      "std": 0.5246,
+      "min": 53.17,
+      "max": 56.67,
+      "p25": 54.67,
+      "p50": 55.02,
+      "p75": 55.38,
+      "p95": 55.89,
+      "p99": 56.2401,
+      "unique": 286,
+      "cv": 0.0095
+    },
+    "shift_type": "CRITICAL SHIFT (False-Positive Cause)"
+  },
+  "disk_read_bytes_per_sec": {
+    "index": 11,
+    "feature_name": "disk_read_bytes_per_sec",
+    "old_baseline": {
+      "mean": 67795.4112,
+      "std": 674573.3333,
+      "min": 0.0,
+      "max": 23583395.8,
+      "unique": 519
+    },
+    "new_baseline": {
+      "mean": 30248.5232,
+      "median": 22499.605,
+      "std": 31469.7777,
+      "min": 0.0,
+      "max": 169897.66,
+      "p25": 0.0,
+      "p50": 22499.605,
+      "p75": 48519.7325,
+      "p95": 92881.101,
+      "p99": 127159.3327,
+      "unique": 2692,
+      "cv": 1.0404
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "disk_write_bytes_per_sec": {
+    "index": 12,
+    "feature_name": "disk_write_bytes_per_sec",
+    "old_baseline": {
+      "mean": 483464.5153,
+      "std": 1816209.5301,
+      "min": 0.0,
+      "max": 38480083.0,
+      "unique": 2965
+    },
+    "new_baseline": {
+      "mean": 910167.8858,
+      "median": 771021.765,
+      "std": 826097.695,
+      "min": 0.0,
+      "max": 5297528.58,
+      "p25": 160281.8925,
+      "p50": 771021.765,
+      "p75": 1412002.83,
+      "p95": 2497136.4695,
+      "p99": 3178258.6349,
+      "unique": 2922,
+      "cv": 0.9076
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "disk_read_count_per_sec": {
+    "index": 13,
+    "feature_name": "disk_read_count_per_sec",
+    "old_baseline": {
+      "mean": 1.3515,
+      "std": 11.3687,
+      "min": 0.0,
+      "max": 268.4,
+      "unique": 55
+    },
+    "new_baseline": {
+      "mean": 3.0613,
+      "median": 2.29,
+      "std": 3.1855,
+      "min": 0.0,
+      "max": 18.01,
+      "p25": 0.0,
+      "p50": 2.29,
+      "p75": 4.91,
+      "p95": 9.3805,
+      "p99": 12.7604,
+      "unique": 984,
+      "cv": 1.0406
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "disk_write_count_per_sec": {
+    "index": 14,
+    "feature_name": "disk_write_count_per_sec",
+    "old_baseline": {
+      "mean": 32.5851,
+      "std": 245.8998,
+      "min": 0.0,
+      "max": 3910.5,
+      "unique": 211
+    },
+    "new_baseline": {
+      "mean": 40.0273,
+      "median": 34.275,
+      "std": 34.3438,
+      "min": 0.0,
+      "max": 219.5,
+      "p25": 11.21,
+      "p50": 34.275,
+      "p75": 61.5075,
+      "p95": 103.4775,
+      "p99": 138.3605,
+      "unique": 2622,
+      "cv": 0.858
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "net_bytes_sent_per_sec": {
+    "index": 15,
+    "feature_name": "net_bytes_sent_per_sec",
+    "old_baseline": {
+      "mean": 14546.9328,
+      "std": 26033.5761,
+      "min": 0.0,
+      "max": 274297.4,
+      "unique": 2996
+    },
+    "new_baseline": {
+      "mean": 985269.4624,
+      "median": 851863.945,
+      "std": 855229.4784,
+      "min": 0.0,
+      "max": 3957671.11,
+      "p25": 226000.575,
+      "p50": 851863.945,
+      "p75": 1535545.4825,
+      "p95": 2595167.1915,
+      "p99": 3341081.7654,
+      "unique": 2965,
+      "cv": 0.868
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "net_bytes_recv_per_sec": {
+    "index": 16,
+    "feature_name": "net_bytes_recv_per_sec",
+    "old_baseline": {
+      "mean": 619419.1248,
+      "std": 1307525.5987,
+      "min": 55.9,
+      "max": 6288554.6,
+      "unique": 3461
+    },
+    "new_baseline": {
+      "mean": 54606.9994,
+      "median": 47040.67,
+      "std": 46795.3646,
+      "min": 0.0,
+      "max": 266786.91,
+      "p25": 14046.705,
+      "p50": 47040.67,
+      "p75": 84091.1825,
+      "p95": 142051.3405,
+      "p99": 183752.4079,
+      "unique": 3014,
+      "cv": 0.8569
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "net_packets_sent_per_sec": {
+    "index": 17,
+    "feature_name": "net_packets_sent_per_sec",
+    "old_baseline": {
+      "mean": 93.6795,
+      "std": 177.8133,
+      "min": 0.0,
+      "max": 1763.8,
+      "unique": 891
+    },
+    "new_baseline": {
+      "mean": 775.6632,
+      "median": 677.605,
+      "std": 670.0911,
+      "min": 0.0,
+      "max": 3764.72,
+      "p25": 187.5625,
+      "p50": 677.605,
+      "p75": 1199.75,
+      "p95": 2018.7025,
+      "p99": 2613.4733,
+      "unique": 2988,
+      "cv": 0.8639
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "net_packets_recv_per_sec": {
+    "index": 18,
+    "feature_name": "net_packets_recv_per_sec",
+    "old_baseline": {
+      "mean": 517.0606,
+      "std": 1041.0736,
+      "min": 1.0,
+      "max": 5028.5,
+      "unique": 1192
+    },
+    "new_baseline": {
+      "mean": 526.2918,
+      "median": 452.525,
+      "std": 450.3324,
+      "min": 0.0,
+      "max": 2373.91,
+      "p25": 143.1925,
+      "p50": 452.525,
+      "p75": 808.16,
+      "p95": 1377.924,
+      "p99": 1815.2801,
+      "unique": 2997,
+      "cv": 0.8557
+    },
+    "shift_type": "Nominal Shift"
+  },
+  "net_errors_total": {
+    "index": 19,
+    "feature_name": "net_errors_total",
+    "old_baseline": {
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "unique": 1
+    },
+    "new_baseline": {
+      "mean": 2.0027,
+      "median": 2.0,
+      "std": 0.1135,
+      "min": 1.6,
+      "max": 2.3,
+      "p25": 1.9,
+      "p50": 2.0,
+      "p75": 2.1,
+      "p95": 2.2,
+      "p99": 2.2,
+      "unique": 8,
+      "cv": 0.0567
+    },
+    "shift_type": "Counter/Invariant"
+  },
+  "net_drops_total": {
+    "index": 20,
+    "feature_name": "net_drops_total",
+    "old_baseline": {
+      "mean": 294.0,
+      "std": 0.0,
+      "min": 294.0,
+      "max": 294.0,
+      "unique": 1
+    },
+    "new_baseline": {
+      "mean": 0.0694,
+      "median": 0.1,
+      "std": 0.0789,
+      "min": 0.0,
+      "max": 0.4,
+      "p25": 0.0,
+      "p50": 0.1,
+      "p75": 0.1,
+      "p95": 0.2,
+      "p99": 0.3,
+      "unique": 5,
+      "cv": 1.1366
+    },
+    "shift_type": "Counter/Invariant"
+  },
+  "process_count": {
+    "index": 21,
+    "feature_name": "process_count",
+    "old_baseline": {
+      "mean": 347.9533,
+      "std": 2.2579,
+      "min": 344.0,
+      "max": 358.0,
+      "unique": 14
+    },
+    "new_baseline": {
+      "mean": 381.8636,
+      "median": 382.0,
+      "std": 4.0745,
+      "min": 370.0,
+      "max": 396.0,
+      "p25": 379.0,
+      "p50": 382.0,
+      "p75": 385.0,
+      "p95": 389.0,
+      "p99": 392.0,
+      "unique": 27,
+      "cv": 0.0107
+    },
+    "shift_type": "CRITICAL SHIFT (False-Positive Cause)"
+  }
+}

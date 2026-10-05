@@ -99,6 +99,9 @@ def generate_anomalous_features(row_idx: int = 150) -> dict:
     return feats
 
 
+from data.multihost_validation.test_db_helper import IsolatedTestDatabase
+
+
 def run_all_tests():
     print("=" * 80)
     print("FGEAD PHASE 6 — MULTI-HOST PLATFORM VALIDATION SUITE")
@@ -106,7 +109,7 @@ def run_all_tests():
 
     results = {}
 
-    with TestClient(app) as client:
+    with IsolatedTestDatabase(prefix="multihost_test_"), TestClient(app) as client:
         # Test 1: Register Windows host
         try:
             payload_win = {

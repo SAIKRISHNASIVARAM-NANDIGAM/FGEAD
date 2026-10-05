@@ -1,0 +1,30 @@
+{
+  "total_windows": 126,
+  "mean_score": 3.1987387063492076,
+  "min_score": 2.7755,
+  "max_score": 7.15404,
+  "anomalies": 126,
+  "normals": 0,
+  "top_features": {
+    "disk_usage_percent": 126,
+    "memory_used_mb": 126,
+    "memory_available_mb": 82,
+    "cpu_user_time_percent": 28,
+    "cpu_ctx_switches_per_sec": 16
+  },
+  "latest_result": {
+    "sample": 185,
+    "timestamp": "2026-10-04T20:19:04Z",
+    "score": 3.222336,
+    "threshold": 1.85945,
+    "is_anomaly": true,
+    "top_features": [
+      "disk_usage_percent",
+      "memory_used_mb",
+      "memory_available_mb"
+    ],
+    "episode_id": 1,
+    "duration_sec": 126,
+    "headline": "FGEAD detected unusually high activity in percentage of disk storage capacity currently used (system activity) on this computer."
+  }
+}

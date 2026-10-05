@@ -35,12 +35,14 @@ if sys.platform == "win32":
 import numpy as np
 import torch
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 
 # ============================================================================
-# PROJECT ROOT
+# PROJECT ROOT & CONFIGURATION
 # ============================================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -48,6 +50,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from config.settings import settings
+from core.logger import logger, log_api_request
 
 # ============================================================================
 # FGEAD IMPORTS
@@ -64,7 +68,6 @@ from data.multihost_buffer import get_multihost_buffer_manager, MultiHostBufferM
 from api.multihost_inference import get_multihost_inference_manager, MultiHostInferenceManager
 
 
-
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -72,26 +75,23 @@ from api.multihost_inference import get_multihost_inference_manager, MultiHostIn
 WINDOW_SIZE = int(os.getenv("WINDOW_SIZE", "60"))
 STRIDE = int(os.getenv("STRIDE", "5"))
 
-MACHINE_ID = os.getenv("MACHINE_ID", os.getenv("SMD_MACHINE", "1-1"))
+MACHINE_ID = os.getenv("MACHINE_ID", os.getenv("SMD_MACHINE", settings.SMD_MACHINE_ID))
 
 CHECKPOINT_PATH = Path(
     os.getenv(
         "CHECKPOINT_PATH",
-        str(PROJECT_ROOT / "checkpoints" / f"fgead_smd_machine_{MACHINE_ID.replace('-', '_')}.pt")
+        str(settings.SMD_CHECKPOINT_PATH)
     )
 )
 
 SMD_ROOT = Path(
-    os.getenv("SMD_ROOT", str(PROJECT_ROOT / "data" / "SMD"))
+    os.getenv("SMD_ROOT", str(settings.SMD_DATA_DIR))
 )
 
 # Official threshold from evaluate_smd_final.py
-OFFICIAL_WINDOW_THRESHOLD = float(os.getenv("WINDOW_THRESHOLD", "2.073376"))
+OFFICIAL_WINDOW_THRESHOLD = float(os.getenv("WINDOW_THRESHOLD", str(settings.SMD_THRESHOLD)))
 
-DEVICE = os.getenv(
-    "DEVICE",
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
+DEVICE = settings.DEVICE if settings.DEVICE else ("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # ============================================================================
@@ -102,18 +102,104 @@ app = FastAPI(
     title="FGEAD — Explainable Anomaly Detection API",
     description=(
         "Feature Graph-based Explainable Anomaly Detector "
-        "for the Server Machine Dataset."
+        "for the Server Machine Dataset & Multi-Host Platform."
     ),
-    version="2.1.0",
+    version="2.2.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================================
+# REQUEST LOGGING MIDDLEWARE
+# ============================================================================
+
+@app.middleware("http")
+async def log_requests_middleware(request: Request, call_next):
+    start_time = time.perf_counter()
+    endpoint = request.url.path
+    method = request.method
+    host_id = request.headers.get("X-Host-ID") or request.headers.get("x-host-id")
+
+    try:
+        response = await call_next(request)
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        err = f"HTTP {response.status_code}" if response.status_code >= 400 else None
+        log_api_request(
+            endpoint=endpoint,
+            method=method,
+            status_code=response.status_code,
+            latency_ms=latency_ms,
+            host_id=host_id,
+            error=err,
+        )
+        return response
+    except Exception as exc:
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        log_api_request(
+            endpoint=endpoint,
+            method=method,
+            status_code=500,
+            latency_ms=latency_ms,
+            host_id=host_id,
+            error=str(exc),
+        )
+        raise exc
+
+
+# ============================================================================
+# GLOBAL EXCEPTION HANDLERS (CLEAN JSON)
+# ============================================================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "status_code": exc.status_code,
+            "detail": exc.detail,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "path": request.url.path,
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "status": "error",
+            "status_code": 422,
+            "detail": "Request validation failed",
+            "errors": exc.errors(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "path": request.url.path,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled server exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    detail_msg = "Internal server error." if settings.is_production else str(exc)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "status_code": 500,
+            "detail": detail_msg,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "path": request.url.path,
+        },
+    )
 
 
 # ============================================================================
@@ -534,8 +620,13 @@ def startup_event() -> None:
         _explainer = None
 
 
+@app.on_event("shutdown")
+def shutdown_event() -> None:
+    logger.info("FGEAD API Gateway shutting down gracefully.")
+
+
 # ============================================================================
-# HEALTH
+# HEALTH & PROBES
 # ============================================================================
 
 @app.get(
@@ -557,6 +648,55 @@ def health() -> HealthResponse:
         window_size=WINDOW_SIZE,
         stride=STRIDE,
     )
+
+
+@app.get("/health/live")
+def health_live() -> Dict[str, Any]:
+    """Kubernetes / Cloud Liveness Probe."""
+    return {
+        "status": "alive",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "environment": settings.ENVIRONMENT,
+    }
+
+
+@app.get("/health/ready")
+def health_ready() -> JSONResponse:
+    """Kubernetes / Cloud Readiness Probe."""
+    checks = {
+        "database": False,
+        "smd_model": False,
+        "live_inference": False,
+    }
+
+    try:
+        registry = get_host_registry()
+        checks["database"] = registry.is_healthy()
+    except Exception:
+        checks["database"] = False
+
+    checks["smd_model"] = _model_loaded and _model is not None
+
+    try:
+        live_svc = get_live_inference_service()
+        checks["live_inference"] = bool(live_svc.is_ready)
+    except Exception:
+        checks["live_inference"] = False
+
+    all_ready = all(checks.values())
+    status_code = 200 if all_ready else 503
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if all_ready else "degraded",
+            "ready": all_ready,
+            "checks": checks,
+            "environment": settings.ENVIRONMENT,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
 
 
 # ============================================================================
@@ -1252,11 +1392,22 @@ def get_telemetry_history() -> Dict[str, Any]:
 # ============================================================================
 
 @app.post("/hosts/register", response_model=HostRegisterResponse)
-def register_host_endpoint(payload: HostRegisterRequest) -> HostRegisterResponse:
+def register_host_endpoint(
+    payload: HostRegisterRequest,
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(None),
+) -> HostRegisterResponse:
     """
     Register a new host machine or update existing agent registration.
     Generates a secure agent authentication token.
     """
+    if settings.is_production and settings.API_SECRET_KEY not in ("", "fgead-dev-secret-change-in-production"):
+        key = x_api_key
+        if not key and authorization and authorization.startswith("Bearer "):
+            key = authorization[7:].strip()
+        if not key or key != settings.API_SECRET_KEY:
+            raise HTTPException(status_code=401, detail="Registration authentication failed: Invalid or missing X-API-Key.")
+
     reg = get_host_registry()
     host_dict, raw_token = reg.register_host(
         hostname=payload.hostname,
@@ -1328,7 +1479,7 @@ def get_host_details_endpoint(host_id: str) -> Dict[str, Any]:
 
     buf_mgr = get_multihost_buffer_manager()
     inf_mgr = get_multihost_inference_manager()
-    
+
     return {
         "status": "ok",
         "host": host_dict,
@@ -1515,12 +1666,12 @@ def get_host_analysis(host_id: str) -> Dict[str, Any]:
 
     buf_mgr = get_multihost_buffer_manager()
     inf_mgr = get_multihost_inference_manager()
-    
+
     buf_status = buf_mgr.get_status(host_id)
     latest_inf = inf_mgr.get_latest_inference(host_id)
     score_hist = inf_mgr.get_score_history(host_id)
     ep_status = inf_mgr.get_episode_tracker(host_id).get_status()
-    
+
     model_id = host_dict.get("model_id", "none")
     profile = inf_mgr.get_profile(model_id) if model_id != "none" else None
     is_compat, compat_msg, compat_details = inf_mgr.check_compatibility(host_dict, model_id)
@@ -1558,6 +1709,25 @@ def get_host_episodes(host_id: str) -> Dict[str, Any]:
         "current_episode": tracker.current_episode,
         "completed_episodes": tracker.completed_episodes,
     }
+
+
+@app.post("/hosts/{host_id}/reset")
+def reset_host_episode_state(host_id: str) -> Dict[str, Any]:
+    """
+    Clear in-memory episode tracker, rolling buffer, and score history for a host.
+    """
+    reg = get_host_registry()
+    host_dict = reg.get_host(host_id)
+    if not host_dict:
+        raise HTTPException(status_code=404, detail=f"Host '{host_id}' not found.")
+
+    inf_mgr = get_multihost_inference_manager()
+    inf_mgr.reset_host_state(host_id)
+    buf_mgr = get_multihost_buffer_manager()
+    buf = buf_mgr.get_buffer(host_id)
+    if buf:
+        buf.clear()
+    return {"status": "success", "message": f"Episode tracking and buffer reset for host '{host_id}'."}
 
 
 @app.post("/hosts/{host_id}/baseline")
@@ -1803,10 +1973,12 @@ def root() -> Dict[str, Any]:
         "threshold": OFFICIAL_WINDOW_THRESHOLD,
         "device": DEVICE,
         "endpoints": {
-            "health": "/health",
-            "dataset": "/dataset",
-            "machine": "/machine",
-            "predict": "/predict",
+            "health": "GET /health",
+            "health_live": "GET /health/live",
+            "health_ready": "GET /health/ready",
+            "dataset": "GET /dataset",
+            "machine": "GET /machine",
+            "predict": "POST /predict",
             "predict_live": "POST /predict/live",
             "telemetry_post": "POST /telemetry",
             "telemetry_latest": "GET /telemetry/latest",
@@ -1820,6 +1992,6 @@ def root() -> Dict[str, Any]:
             "hosts_analysis": "GET /hosts/{host_id}/analysis",
             "fleet_overview": "GET /fleet/overview",
             "alerts": "GET /alerts",
-            "docs": "/docs",
+            "docs": "GET /docs",
         },
     }

@@ -1,0 +1,17 @@
+{
+  "host_id": "host_sivachowdary",
+  "model_id": "windows_sivachowdary_v2",
+  "threshold": 1.411807,
+  "total_samples": 120,
+  "duration_seconds": 136.55,
+  "evaluated_windows": 61,
+  "mean_score": 2.8342,
+  "median_score": 2.8474,
+  "max_score": 2.8691,
+  "p95_score": 2.8679,
+  "p99_score": 2.8687,
+  "anomalous_windows": 61,
+  "episode_count": 0,
+  "is_anomaly": true,
+  "state": "ANOMALOUS"
+}

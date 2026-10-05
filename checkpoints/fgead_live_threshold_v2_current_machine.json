@@ -1,0 +1,9 @@
+{
+  "model_id": "windows_sivachowdary_v2",
+  "threshold": 1.411807,
+  "validation_mean": 1.0613896973167785,
+  "validation_std": 0.0810165510563371,
+  "validation_p95": 1.1989651918411255,
+  "validation_p99": 1.2276585578918457,
+  "calibrated_at": "2026-10-04T21:50:32Z"
+}

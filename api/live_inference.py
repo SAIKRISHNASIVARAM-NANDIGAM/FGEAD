@@ -42,20 +42,24 @@ from data.live_feature_schema import (
     LIVE_FEATURE_VERSION,
     N_LIVE_FEATURES,
     format_physical_metric,
+    prepare_model_input_window,
+    CUMULATIVE_COUNTER_BASELINE_ANCHORS,
 )
 
 from models.fgead import FGEAD
+from api.deep_explainability import build_deep_human_explanation
 
 
 class LiveEpisodeTracker:
     """
     Tracks contiguous anomalous sliding windows (W=60, S=1) as single coherent episodes.
-    Uses debounce hysteresis to prevent alert flickering during transient edge transitions.
+    Uses debounce hysteresis and persistence gating to prevent false-positive alert flickering.
     """
 
-    def __init__(self, debounce_frames: int = 2):
+    def __init__(self, debounce_frames: int = 2, min_persistence_frames: int = 2):
         self._lock = threading.RLock()
         self.debounce_frames = debounce_frames
+        self.min_persistence_frames = min_persistence_frames
         self.episode_counter: int = 0
         self.current_episode: Optional[Dict[str, Any]] = None
         self._consecutive_nominal: int = 0
@@ -77,8 +81,9 @@ class LiveEpisodeTracker:
             if is_anomaly:
                 self._consecutive_nominal = 0
                 if self.current_episode is None:
-                    # Open new episode
+                    # Open new episode (Pending confirmation or Confirmed)
                     self.episode_counter += 1
+                    is_conf = (self.min_persistence_frames <= 1)
                     self.current_episode = {
                         "episode_id": self.episode_counter,
                         "start_time": timestamp,
@@ -89,6 +94,8 @@ class LiveEpisodeTracker:
                         "flagged_windows_count": 1,
                         "threshold": threshold,
                         "dominant_features": [f["feature"] for f in top_features[:3]],
+                        "is_confirmed": is_conf,
+                        "decision_state": "ANOMALY" if is_conf else "SUSPICIOUS",
                     }
                     return self.episode_counter, True
                 else:
@@ -102,6 +109,9 @@ class LiveEpisodeTracker:
                         ep["peak_score"] = score
                     # Update dominant features if higher score
                     ep["dominant_features"] = [f["feature"] for f in top_features[:3]]
+                    if ep["flagged_windows_count"] >= self.min_persistence_frames:
+                        ep["is_confirmed"] = True
+                        ep["decision_state"] = "ANOMALY"
                     return ep["episode_id"], False
             else:
                 # Nominal window
@@ -120,6 +130,7 @@ class LiveEpisodeTracker:
                             "mean_score": round(mean_sc, 4),
                             "flagged_windows_count": ep["flagged_windows_count"],
                             "dominant_features": ep["dominant_features"],
+                            "is_confirmed": ep.get("is_confirmed", False),
                         }
                         self.completed_episodes.append(completed_ep)
                         if len(self.completed_episodes) > 50:
@@ -134,8 +145,10 @@ class LiveEpisodeTracker:
             if self.current_episode is not None:
                 ep = self.current_episode
                 last_score = ep["scores"][-1] if ep["scores"] else ep["peak_score"]
+                is_conf = ep.get("is_confirmed", ep["flagged_windows_count"] >= self.min_persistence_frames)
                 return {
-                    "is_in_anomaly_episode": True,
+                    "is_in_anomaly_episode": is_conf,
+                    "is_pending_suspicious": not is_conf,
                     "active_episode_id": ep["episode_id"],
                     "start_time": ep["start_time"],
                     "duration_sec": ep["duration_sec"],
@@ -143,9 +156,12 @@ class LiveEpisodeTracker:
                     "current_score": round(last_score, 4),
                     "flagged_windows_count": ep["flagged_windows_count"],
                     "dominant_features": ep["dominant_features"],
+                    "is_confirmed": is_conf,
+                    "decision_state": "ANOMALY" if is_conf else "SUSPICIOUS",
                 }
             return {
                 "is_in_anomaly_episode": False,
+                "is_pending_suspicious": False,
                 "active_episode_id": None,
                 "start_time": None,
                 "duration_sec": 0,
@@ -153,6 +169,8 @@ class LiveEpisodeTracker:
                 "current_score": None,
                 "flagged_windows_count": 0,
                 "dominant_features": [],
+                "is_confirmed": False,
+                "decision_state": "NORMAL",
                 "total_completed_episodes": len(self.completed_episodes),
             }
 
@@ -336,8 +354,9 @@ class LiveInferenceService:
             raise ValueError("Input window contains Infinite values")
 
         with self._lock:
-            # 2. Normalize using train-fitted scaler
-            norm_window = self.scaler.transform(arr).astype(np.float32)  # (60, 22)
+            # 2. Normalize using train-fitted scaler (with baseline anchor for invariant cumulative counters)
+            model_input_arr = prepare_model_input_window(arr)
+            norm_window = self.scaler.transform(model_input_arr).astype(np.float32)  # (60, 22)
             tensor_x = torch.from_numpy(norm_window).unsqueeze(0).to(self.device)  # (1, 60, 22)
 
             t0 = time.perf_counter()
@@ -360,6 +379,12 @@ class LiveInferenceService:
                 preds_all_unscaled = self.scaler.inverse_transform(preds_norm[0].cpu().numpy())
                 actual_all_unscaled = arr[1:]
                 feat_residuals = np.mean(np.abs(preds_norm[0].cpu().numpy() - tensor_x[0, 1:].cpu().numpy()), axis=0)
+
+                # Zero out anchored cumulative counters so they cannot become anomaly evidence
+                for anchor_feat in CUMULATIVE_COUNTER_BASELINE_ANCHORS:
+                    if anchor_feat in self.feature_names:
+                        a_idx = self.feature_names.index(anchor_feat)
+                        feat_residuals[a_idx] = 0.0
 
             latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
 
@@ -404,6 +429,14 @@ class LiveInferenceService:
                 })
 
 
+            # Debug diagnostics
+            drops_idx = self.feature_names.index("net_drops_total") if "net_drops_total" in self.feature_names else -1
+            phys_drops = float(arr[-1, drops_idx]) if drops_idx >= 0 else 0.0
+            model_drops = float(model_input_arr[-1, drops_idx]) if drops_idx >= 0 else 0.0
+            b_mean = float(self.scaler.mean_[drops_idx]) if (self.scaler is not None and hasattr(self.scaler, "mean_") and drops_idx >= 0) else 294.0
+            b_std = float(self.scaler.scale_[drops_idx]) if (self.scaler is not None and hasattr(self.scaler, "scale_") and drops_idx >= 0) else 1.0
+            drops_res = float(feat_residuals[drops_idx]) if drops_idx >= 0 else 0.0
+
             # Episode Tracker Update
             active_ep_id, is_new_ep = self.episode_tracker.update(
                 is_anomaly=is_anomaly,
@@ -434,6 +467,18 @@ class LiveInferenceService:
                 episode_info=ep_status,
             )
 
+            # Deep Human-Understandable Explainability
+            decision_state = ep_status.get("decision_state", "ANOMALY" if is_anomaly else "NORMAL")
+            deep_explanation = build_deep_human_explanation(
+                state=decision_state,
+                anomaly_score=window_anomaly_score,
+                threshold=self.threshold,
+                top_features=top_features,
+                timestamp_iso=ts,
+                episode_info=ep_status,
+                host_id="live_windows_host",
+            )
+
             result = {
                 "model": "fgead_live_windows_22ch",
                 "schema_version": LIVE_FEATURE_VERSION,
@@ -449,6 +494,8 @@ class LiveInferenceService:
                 "latency_ms": latency_ms,
                 "top_features": top_features,
                 "five_question_explanation": explanation,
+                "human_explanation": deep_explanation,
+                "deep_explanation": deep_explanation,
                 "episode_status": ep_status,
             }
 
@@ -472,6 +519,13 @@ class LiveInferenceService:
     def get_score_history(self) -> List[Dict[str, Any]]:
         with self._lock:
             return list(self.score_history)
+
+    def reset_episodes(self) -> None:
+        """Clear in-memory episode state and score history."""
+        with self._lock:
+            self.episode_tracker = LiveEpisodeTracker(debounce_frames=2)
+            self.score_history = []
+            self.latest_result = None
 
 
 # Global singleton live inference instance

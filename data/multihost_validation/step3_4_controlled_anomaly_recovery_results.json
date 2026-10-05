@@ -1,0 +1,176 @@
+{
+  "scenarios": {
+    "CPU-Intensive Workload": {
+      "scenario_id": "A",
+      "baseline_score": 0.7999,
+      "peak_score": 2.6224,
+      "threshold": 1.4118,
+      "detected": true,
+      "severity": "HIGH",
+      "detection_latency_sec": 2.57,
+      "episode_id": null,
+      "top_features": [
+        "cpu_user_time_percent",
+        "cpu_percent",
+        "disk_read_count_per_sec"
+      ],
+      "top_residuals": [
+        8.7333,
+        2.1788,
+        0.9941
+      ],
+      "xai_explanation": "N/A",
+      "recovered": true,
+      "recovery_time_sec": 2.72,
+      "recovery_transitions": [
+        "HIGH",
+        "NOMINAL"
+      ]
+    },
+    "Disk-Write Burst": {
+      "scenario_id": "B",
+      "baseline_score": 0.7999,
+      "peak_score": 11.5437,
+      "threshold": 1.4118,
+      "detected": true,
+      "severity": "CRITICAL",
+      "detection_latency_sec": 2.43,
+      "episode_id": null,
+      "top_features": [
+        "disk_write_bytes_per_sec",
+        "disk_write_count_per_sec",
+        "disk_read_count_per_sec"
+      ],
+      "top_residuals": [
+        39.9912,
+        21.4998,
+        0.9882
+      ],
+      "xai_explanation": "N/A",
+      "recovered": true,
+      "recovery_time_sec": 2.89,
+      "recovery_transitions": [
+        "CRITICAL",
+        "NOMINAL"
+      ]
+    },
+    "Disk-Read Burst": {
+      "scenario_id": "C",
+      "baseline_score": 0.7999,
+      "peak_score": 451.0853,
+      "threshold": 1.4118,
+      "detected": true,
+      "severity": "CRITICAL",
+      "detection_latency_sec": 2.44,
+      "episode_id": null,
+      "top_features": [
+        "disk_read_bytes_per_sec",
+        "disk_read_count_per_sec",
+        "disk_write_count_per_sec"
+      ],
+      "top_residuals": [
+        2190.0459,
+        330.4218,
+        0.7403
+      ],
+      "xai_explanation": "N/A",
+      "recovered": true,
+      "recovery_time_sec": 2.81,
+      "recovery_transitions": [
+        "CRITICAL",
+        "NOMINAL"
+      ]
+    },
+    "Network Burst": {
+      "scenario_id": "D",
+      "baseline_score": 0.7999,
+      "peak_score": 7.3397,
+      "threshold": 1.4118,
+      "detected": true,
+      "severity": "CRITICAL",
+      "detection_latency_sec": 2.49,
+      "episode_id": null,
+      "top_features": [
+        "net_bytes_sent_per_sec",
+        "net_packets_sent_per_sec",
+        "disk_read_count_per_sec"
+      ],
+      "top_residuals": [
+        20.3897,
+        17.1852,
+        1.0886
+      ],
+      "xai_explanation": "N/A",
+      "recovered": true,
+      "recovery_time_sec": 2.85,
+      "recovery_transitions": [
+        "CRITICAL",
+        "NOMINAL"
+      ]
+    },
+    "Combined CPU + Storage": {
+      "scenario_id": "E",
+      "baseline_score": 0.7999,
+      "peak_score": 9.2827,
+      "threshold": 1.4118,
+      "detected": true,
+      "severity": "CRITICAL",
+      "detection_latency_sec": 2.46,
+      "episode_id": null,
+      "top_features": [
+        "disk_write_bytes_per_sec",
+        "disk_write_count_per_sec",
+        "cpu_percent"
+      ],
+      "top_residuals": [
+        30.403,
+        17.001,
+        2.0507
+      ],
+      "xai_explanation": "N/A",
+      "recovered": true,
+      "recovery_time_sec": 3.07,
+      "recovery_transitions": [
+        "CRITICAL",
+        "NOMINAL"
+      ]
+    }
+  },
+  "net_drops_audit": [
+    {
+      "scenario": "CPU-Intensive Workload",
+      "physical_drops": 0.0,
+      "model_input_drops": 0.0,
+      "baseline_mean": 0.07,
+      "residual": 0.0
+    },
+    {
+      "scenario": "Disk-Write Burst",
+      "physical_drops": 0.0,
+      "model_input_drops": 0.0,
+      "baseline_mean": 0.07,
+      "residual": 0.0
+    },
+    {
+      "scenario": "Disk-Read Burst",
+      "physical_drops": 0.0,
+      "model_input_drops": 0.0,
+      "baseline_mean": 0.07,
+      "residual": 0.0
+    },
+    {
+      "scenario": "Network Burst",
+      "physical_drops": 0.0,
+      "model_input_drops": 0.0,
+      "baseline_mean": 0.07,
+      "residual": 0.0
+    },
+    {
+      "scenario": "Combined CPU + Storage",
+      "physical_drops": 0.0,
+      "model_input_drops": 0.0,
+      "baseline_mean": 0.07,
+      "residual": 0.0
+    }
+  ]
+}

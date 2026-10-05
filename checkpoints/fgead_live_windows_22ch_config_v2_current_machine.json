@@ -1,0 +1,33 @@
+{
+  "model_id": "windows_sivachowdary_v2",
+  "n_features": 22,
+  "window_size": 60,
+  "features": [
+    "cpu_percent",
+    "cpu_freq_current",
+    "cpu_user_time_percent",
+    "cpu_system_time_percent",
+    "cpu_ctx_switches_per_sec",
+    "cpu_interrupts_per_sec",
+    "memory_percent",
+    "memory_available_mb",
+    "memory_used_mb",
+    "swap_percent",
+    "disk_usage_percent",
+    "disk_read_bytes_per_sec",
+    "disk_write_bytes_per_sec",
+    "disk_read_count_per_sec",
+    "disk_write_count_per_sec",
+    "net_bytes_sent_per_sec",
+    "net_bytes_recv_per_sec",
+    "net_packets_sent_per_sec",
+    "net_packets_recv_per_sec",
+    "net_errors_total",
+    "net_drops_total",
+    "process_count"
+  ],
+  "baseline_path": "data/live_baseline_v2_current_machine.csv",
+  "scaler_path": "checkpoints/fgead_live_scaler_v2_current_machine.joblib",
+  "checkpoint_path": "checkpoints/fgead_live_windows_22ch_v2_current_machine.pt",
+  "threshold": 1.411807
+}
