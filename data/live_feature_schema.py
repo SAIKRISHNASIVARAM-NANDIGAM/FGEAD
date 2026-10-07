@@ -164,6 +164,7 @@ def vector_to_feature_dict(vec: np.ndarray) -> Dict[str, float]:
 # Maps feature_name -> anchored_model_input_value (e.g. net_drops_total: 294.0)
 CUMULATIVE_COUNTER_BASELINE_ANCHORS: Dict[str, float] = {
     "net_drops_total": 294.0,
+    "net_errors_total": 2.0,
 }
 
 

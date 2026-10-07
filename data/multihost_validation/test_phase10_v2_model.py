@@ -162,6 +162,39 @@ class TestPhase10CurrentMachineModel(unittest.TestCase):
         self.assertEqual(reg_res["model_status"], "COMPATIBLE")
         self.assertEqual(reg_res["operating_system"], "Windows")
 
+    def test_07_net_errors_and_drops_counter_anchoring(self):
+        """Verify that net_errors_total and net_drops_total are properly anchored to eliminate boot counter shift."""
+        profile = self.mgr.get_profile("windows_sivachowdary_v2")
+        self.assertIn("net_errors_total", profile.anchors, "net_errors_total must be anchored in v2 profile")
+        self.assertIn("net_drops_total", profile.anchors, "net_drops_total must be anchored in v2 profile")
+
+        # Test nominal window with 0.0 raw network errors and 0.0 drops
+        df = pd.read_csv(self.baseline_csv)
+        feature_cols = [c for c in df.columns if c != "timestamp"]
+        test_win = df.iloc[100:160][feature_cols].values.astype(np.float32).copy()
+        
+        err_idx = LIVE_FEATURES.index("net_errors_total")
+        drop_idx = LIVE_FEATURES.index("net_drops_total")
+        test_win[:, err_idx] = 0.0
+        test_win[:, drop_idx] = 0.0
+
+        res = self.mgr.infer_host_window(
+            host_id="host_sivachowdary",
+            window_raw=test_win,
+            model_id="windows_sivachowdary_v2",
+        )
+        self.assertFalse(res["is_anomaly"], "Window with 0.0 network errors/drops must not trigger anomaly")
+        self.assertLess(res["anomaly_score"], 1.411807)
+
+        # Confirm raw values in XAI details remain authentic 0.0 and residuals are 0.0
+        tech_features = res["deep_explanation"]["technical_details"]["raw_top_features"]
+        res_map = {f["feature"]: f for f in tech_features}
+        self.assertEqual(res_map["net_errors_total"]["actual_value"], 0.0)
+        self.assertEqual(res_map["net_drops_total"]["actual_value"], 0.0)
+        self.assertEqual(res_map["net_errors_total"]["residual"], 0.0)
+        self.assertEqual(res_map["net_drops_total"]["residual"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
+

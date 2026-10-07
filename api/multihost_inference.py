@@ -244,7 +244,7 @@ class MultiHostInferenceManager:
                 threshold_id="fgead_live_threshold_v2_current_machine_json",
                 profile_type="dedicated host model",
                 is_universal=False,
-                anchor_names=["net_drops_total", "cpu_ctx_switches_per_sec", "cpu_system_time_percent", "cpu_user_time_percent", "process_count"],
+                anchor_names=["net_drops_total", "net_errors_total", "cpu_ctx_switches_per_sec", "cpu_system_time_percent", "cpu_user_time_percent", "process_count"],
                 device=self.device,
             )
             self.profiles["windows_sivachowdary_v2"] = v2_profile
