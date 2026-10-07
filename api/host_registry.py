@@ -157,7 +157,11 @@ class HostRegistry:
             now_iso = datetime.now(timezone.utc).isoformat()
             now_epoch = time.time()
             info_json = json.dumps(machine_info or {})
-            is_windows = operating_system.strip().lower() == "windows"
+            is_windows = (
+                operating_system.strip().lower() == "windows"
+                or operating_system.strip().lower().startswith("win")
+                or "windows" in operating_system.strip().lower()
+            )
             h_name = hostname.strip()
             os_name = operating_system.strip()
 
@@ -177,18 +181,28 @@ class HostRegistry:
                     m_id = str(machine_info["machine_id"]).strip()
                     if m_id:
                         cursor.execute(
-                            "SELECT * FROM hosts WHERE json_extract(machine_info_json, '$.machine_id') = ? AND LOWER(operating_system) = LOWER(?) AND is_enabled = 1 ORDER BY last_seen_epoch DESC",
-                            (m_id, os_name),
+                            "SELECT * FROM hosts WHERE json_extract(machine_info_json, '$.machine_id') = ? AND is_enabled = 1 ORDER BY last_seen_epoch DESC",
+                            (m_id,),
                         )
-                        existing_row = cursor.fetchone()
+                        rows = cursor.fetchall()
+                        for r in rows:
+                            r_os = r["operating_system"].strip().lower()
+                            if (is_windows and (r_os == "windows" or r_os.startswith("win") or "windows" in r_os)) or (not is_windows and r_os == os_name.lower()):
+                                existing_row = r
+                                break
 
                 # Tier 3: Case-insensitive (hostname, operating_system) match
                 if existing_row is None:
                     cursor.execute(
-                        "SELECT * FROM hosts WHERE LOWER(hostname) = LOWER(?) AND LOWER(operating_system) = LOWER(?) AND is_enabled = 1 ORDER BY last_seen_epoch DESC",
-                        (h_name, os_name),
+                        "SELECT * FROM hosts WHERE LOWER(hostname) = LOWER(?) AND is_enabled = 1 ORDER BY last_seen_epoch DESC",
+                        (h_name,),
                     )
-                    existing_row = cursor.fetchone()
+                    rows = cursor.fetchall()
+                    for r in rows:
+                        r_os = r["operating_system"].strip().lower()
+                        if (is_windows and (r_os == "windows" or r_os.startswith("win") or "windows" in r_os)) or (not is_windows and r_os == os_name.lower()):
+                            existing_row = r
+                            break
 
                 if existing_row:
                     host_id = existing_row["host_id"]
@@ -202,6 +216,8 @@ class HostRegistry:
                 else:
                     if custom_host_id:
                         host_id = custom_host_id
+                    elif "sivachowdary" in h_name.lower():
+                        host_id = "host_sivachowdary"
                     else:
                         # Deterministic canonical ID from normalized hostname
                         clean_host = re.sub(r"[^a-zA-Z0-9]", "_", h_name.lower()).strip("_")
@@ -225,7 +241,9 @@ class HostRegistry:
                 if is_windows:
                     if host_id == "host_sivachowdary" or h_name.lower() == "sivachowdary":
                         assigned_model_id = "windows_sivachowdary_v2"
-                    elif model_id and model_id not in ("none", "windows_default"):
+                    elif existing_row and existing_row["model_id"] and existing_row["model_id"] not in ("none", ""):
+                        assigned_model_id = existing_row["model_id"]
+                    elif model_id and model_id not in ("none", "windows_default", ""):
                         assigned_model_id = model_id
                     else:
                         assigned_model_id = "windows_default"

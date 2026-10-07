@@ -267,7 +267,10 @@ class MultiHostInferenceManager:
         """
         # 1. OS Compatibility Gating
         host_os = str(host_data.get("operating_system", "")).strip().lower()
-        if host_os == "linux":
+        is_win_host = host_os == "windows" or host_os.startswith("win") or "windows" in host_os
+        is_linux_host = host_os == "linux" or "linux" in host_os
+
+        if is_linux_host:
             return False, "Anomaly inference is disabled because a compatible Linux baseline/model has not yet been trained.", {
                 "status": "BASELINE_REQUIRED",
                 "model_status": "BASELINE_REQUIRED",
@@ -275,7 +278,7 @@ class MultiHostInferenceManager:
                 "host_os": host_data.get("operating_system"),
                 "supported_os": ["Linux (pending training)"],
             }
-        elif not host_os or host_os in ["unknown", "other", "freebsd", "darwin"]:
+        elif not is_win_host:
             return False, f"Anomaly inference is disabled because host operating system '{host_data.get('operating_system', 'Unknown')}' is not supported.", {
                 "status": "BASELINE_REQUIRED",
                 "model_status": "BASELINE_REQUIRED",
@@ -310,7 +313,11 @@ class MultiHostInferenceManager:
             }
 
         supported = [s.lower() for s in profile.supported_os]
-        if host_os not in supported:
+        is_os_supported = any(
+            (host_os in s or s in host_os or (is_win_host and "windows" in s))
+            for s in supported
+        )
+        if not is_os_supported:
             msg = (
                 f"Anomaly inference is disabled: Host OS '{host_data.get('operating_system')}' "
                 f"is not supported by model '{profile.name}' (supported: {', '.join(profile.supported_os)})."

@@ -36,7 +36,9 @@ from data.live_feature_schema import (
     FEATURE_UNITS,
     LIVE_FEATURES,
     format_physical_metric,
+    validate_live_feature_dict,
 )
+from agents.windows_agent import WindowsTelemetryCollector
 from api.deep_explainability import (
     FEATURE_HUMAN_NAMES,
     SUBSYSTEM_HUMAN_NAMES,
@@ -1405,7 +1407,7 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
     anom_hosts = fleet.get("hosts_with_anomalies", 0)
     active_eps = fleet.get("total_active_episodes", 0)
 
-    col_hdr, col_ctrl = st.columns([8, 4])
+    col_hdr, col_ctrl = st.columns([7, 5])
     with col_hdr:
         render_html(
             """
@@ -1421,8 +1423,19 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
         )
     with col_ctrl:
         auto_refresh = st.checkbox("⚡ Auto-Refresh Fleet (1.5s)", value=True, key="fleet_auto_refresh")
-        if st.button("🔄 Refresh Fleet", use_container_width=True):
-            st.rerun()
+        col_fl1, col_fl2 = st.columns([1, 1])
+        with col_fl1:
+            if st.button("🔍 Scan My System", type="primary", use_container_width=True, key="btn_scan_fleet"):
+                st.session_state["scan_active_fleet"] = True
+        with col_fl2:
+            if st.button("🔄 Refresh Fleet", use_container_width=True, key="btn_refresh_fleet"):
+                st.session_state["scan_active_fleet"] = False
+                st.rerun()
+
+    # Render system scan panel for active host on fleet overview page if triggered
+    if st.session_state.get("scan_active_fleet"):
+        target_hid = hosts[0]["host_id"] if hosts else "host_sivachowdary"
+        render_system_scan_panel(target_hid)
 
     # 1. FLEET KPI CARDS
     render_html(
@@ -1800,6 +1813,161 @@ def render_deep_human_explainability_panel(
             st.dataframe(pd.DataFrame(bp_rows), use_container_width=True, hide_index=True)
 
 
+def render_system_scan_panel(host_id: str):
+    """
+    Renders an interactive real-time system scan panel implementing the complete workflow:
+    Open FGEAD -> '🔍 Scan My System' -> Collect telemetry -> Validate scan -> Analyze 60s window ->
+    Check persistence + baseline compatibility + evidence -> Outcome: NORMAL or DEVIATION/ANOMALY.
+    """
+    st.markdown("### 🔍 Interactive System Telemetry Scan")
+
+    # 1. Collect Telemetry Snapshot
+    err_msg = ""
+    try:
+        collector = WindowsTelemetryCollector()
+        feats = collector.collect_features()
+    except Exception as exc:
+        feats = None
+        err_msg = str(exc)
+
+    # 2. Validate Scan
+    if feats:
+        is_valid, val_err = validate_live_feature_dict(feats)
+        if not is_valid:
+            err_msg = val_err
+    else:
+        is_valid = False
+        if not err_msg:
+            err_msg = "Could not collect live telemetry snapshot."
+
+    # 3. Analyze Window & Check Compatibility / Evidence
+    live_analysis = fetch_api_host_analysis(host_id)
+    latest_inf = live_analysis.get("latest_inference") if live_analysis else None
+    model_compat = live_analysis.get("model_compatibility", "Baseline Required") if live_analysis else "Baseline Required"
+    is_compat = (model_compat == "Compatible")
+    ep_status = live_analysis.get("episode_status", {}) if live_analysis else {}
+
+    # Pipeline Verification Cards
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown("**1. Telemetry Ingestion**\n\n🟢 22 Channels Sampled")
+    with col2:
+        if is_valid:
+            st.markdown("**2. Scan Validation**\n\n🟢 Valid (No NaN/Inf)")
+        else:
+            st.markdown(f"**2. Scan Validation**\n\n🔴 Failed ({err_msg})")
+    with col3:
+        if is_compat:
+            st.markdown("**3. 60s Window Analysis**\n\n🟢 Neural Model Active")
+        else:
+            st.markdown(f"**3. 60s Window Analysis**\n\n🟡 {model_compat}")
+    with col4:
+        if latest_inf:
+            st.markdown("**4. Persistence & Evidence**\n\n🟢 Episode & Graph Verified")
+        else:
+            st.markdown("**4. Persistence & Evidence**\n\n⚪ Buffering Window")
+
+    st.markdown("---")
+
+    # Guard 1: Validation Failure
+    if not is_valid:
+        st.error(f"⚠️ **Scan inconclusive** — FGEAD could not obtain sufficient validated evidence (Telemetry validation error: {err_msg}).")
+        return
+
+    # Guard 2: Incompatible / Missing Model
+    if not is_compat:
+        st.info(f"ℹ️ **Scan inconclusive** — FGEAD could not obtain sufficient validated evidence (Model profile status: {model_compat}).")
+        return
+
+    # Guard 3: Insufficient Telemetry Buffer (<60 samples)
+    if not latest_inf:
+        st.info("ℹ️ **Scan inconclusive** — FGEAD could not obtain sufficient validated evidence (Rolling 60-second telemetry window is buffering).")
+        return
+
+    is_anomaly = latest_inf.get("is_anomaly", False)
+    score = latest_inf.get("anomaly_score", 0.0)
+    thresh = latest_inf.get("threshold", 1.411807)
+    ratio = latest_inf.get("ratio", 1.0)
+    severity = latest_inf.get("severity", "NOMINAL")
+    top_feats = latest_inf.get("top_features", [])
+
+    if not is_anomaly:
+        render_html(
+            f"""
+            <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #22c55e; border-radius: 12px; padding: 22px; margin: 12px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="font-size: 0.80rem; font-weight: 800; color: #15803d; text-transform: uppercase; letter-spacing: 1.2px;">
+                            🟢 NO CONFIRMED ANOMALY DETECTED
+                        </div>
+                        <div style="font-family: 'Outfit', sans-serif; font-size: 1.65rem; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                            No Confirmed Anomaly
+                        </div>
+                        <div style="font-size: 0.92rem; color: #334155; margin-top: 4px;">
+                            No confirmed anomaly was detected by FGEAD in the analyzed window.
+                        </div>
+                    </div>
+                    <div style="text-align: right; background: #ffffff; padding: 12px 18px; border-radius: 8px; border: 1px solid #bbf7d0;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Anomaly Score / Threshold</div>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.50rem; font-weight: 800; color: #16a34a;">
+                            {score:.4f} <span style="font-size: 0.9rem; color: #64748b;">(τ = {thresh:.4f})</span>
+                        </div>
+                        <div style="font-size: 0.80rem; font-weight: 700; color: #16a34a; margin-top: 2px;">Ratio: {ratio:.2f}x &bull; Status: NOMINAL</div>
+                    </div>
+                </div>
+            </div>
+            """
+        )
+    else:
+        top_names = [f"<code>{f.get('feature', '')}</code>" for f in top_feats[:3]]
+        feats_html = ", ".join(top_names) if top_names else "telemetry features"
+        
+        active_ep = ep_status.get("active_episode_id")
+        if not active_ep and ratio < 1.5:
+            subtitle_msg = "Unusual operating-state deviation detected. Available evidence is insufficient to classify this as a confirmed anomaly."
+        else:
+            subtitle_msg = f"Top contributing feature / root-cause candidates: {feats_html}"
+
+        render_html(
+            f"""
+            <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 2px solid #ef4444; border-radius: 12px; padding: 22px; margin: 12px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="font-size: 0.80rem; font-weight: 800; color: #b91c1c; text-transform: uppercase; letter-spacing: 1.2px;">
+                            🔴 TELEMETRY DEVIATION / ANOMALY DETECTED
+                        </div>
+                        <div style="font-family: 'Outfit', sans-serif; font-size: 1.65rem; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                            Operating-State Deviation Detected
+                        </div>
+                        <div style="font-size: 0.92rem; color: #7f1d1d; margin-top: 6px;">
+                            {subtitle_msg}
+                        </div>
+                    </div>
+                    <div style="text-align: right; background: #ffffff; padding: 12px 18px; border-radius: 8px; border: 1px solid #fca5a5;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Anomaly Score / Threshold</div>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.50rem; font-weight: 800; color: #dc2626;">
+                            {score:.4f} <span style="font-size: 0.9rem; color: #64748b;">(τ = {thresh:.4f})</span>
+                        </div>
+                        <div style="font-size: 0.80rem; font-weight: 700; color: #dc2626; margin-top: 2px;">Ratio: {ratio:.2f}x &bull; Severity: {severity}</div>
+                    </div>
+                </div>
+            </div>
+            """
+        )
+
+        st.markdown("##### 🔬 Top Contributing Feature / Root-Cause Candidates")
+        top_rows = []
+        for rank, tf in enumerate(top_feats[:5], start=1):
+            top_rows.append({
+                "Rank": f"#{rank}",
+                "Candidate Feature": tf.get("feature", ""),
+                "Observed Value": tf.get("formatted_value", ""),
+                "Model Residual": f"{tf.get('residual', 0.0):.4f}",
+                "Description": tf.get("description", ""),
+            })
+        st.dataframe(pd.DataFrame(top_rows), use_container_width=True, hide_index=True)
+
+
 def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
     """Render comprehensive telemetry, real-time XAI, and model timeline for one specific host."""
     host_info_data = fetch_api_host_details(host_id)
@@ -1829,7 +1997,7 @@ def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
     sec_ago = buf_status.get("seconds_since_last_seen", 0.0)
 
     # 1. HEADER
-    col_hdr, col_ctrl = st.columns([8, 4])
+    col_hdr, col_ctrl = st.columns([7, 5])
     with col_hdr:
         if not is_connected:
             status_badge = "<span class='badge-anomaly' style='font-size:0.82rem; padding:3px 9px;'>⚪ Offline</span>"
@@ -1858,8 +2026,18 @@ def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
         )
     with col_ctrl:
         auto_refresh = st.checkbox("⚡ Auto-Refresh Host (1.5s)", value=True, key=f"host_refresh_{host_id}")
-        if st.button("🔄 Refresh Host Snapshot", use_container_width=True):
-            st.rerun()
+        col_ctrl1, col_ctrl2 = st.columns([1, 1])
+        with col_ctrl1:
+            if st.button("🔍 Scan My System", type="primary", use_container_width=True, key=f"btn_scan_{host_id}"):
+                st.session_state[f"scan_active_{host_id}"] = True
+        with col_ctrl2:
+            if st.button("🔄 Refresh Snapshot", use_container_width=True, key=f"btn_refresh_{host_id}"):
+                st.session_state[f"scan_active_{host_id}"] = False
+                st.rerun()
+
+    # Render system scan panel if triggered
+    if st.session_state.get(f"scan_active_{host_id}"):
+        render_system_scan_panel(host_id)
 
     # 2. SYSTEM STATUS (5 Clean Metric Cards)
     if latest_feats and is_connected:

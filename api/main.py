@@ -1450,14 +1450,21 @@ def list_hosts_endpoint() -> Dict[str, Any]:
         ep_tracker = inf_mgr.get_episode_tracker(hid)
         ep_status = ep_tracker.get_status()
 
+        model_id = h.get("model_id", "windows_default")
+        profile = inf_mgr.get_profile(model_id) if model_id not in ("none", None) else None
+        is_compat, compat_msg, compat_details = inf_mgr.check_compatibility(h, model_id)
+
         h_copy = dict(h)
         h_copy["buffer_size"] = buf_status["buffer_size"]
         h_copy["is_window_full"] = buf_status["is_window_full"]
         h_copy["latest_score"] = latest_inf["anomaly_score"] if latest_inf else None
-        h_copy["threshold"] = latest_inf["threshold"] if latest_inf else 1.859450
+        h_copy["threshold"] = latest_inf["threshold"] if latest_inf else (profile.threshold if profile else 1.859450)
         h_copy["is_anomaly"] = latest_inf["is_anomaly"] if latest_inf else False
         h_copy["severity"] = latest_inf["severity"] if latest_inf else "NOMINAL"
         h_copy["active_episode"] = ep_status.get("active_episode_id")
+        h_copy["model_name"] = profile.name if profile else "None (Baseline Required)"
+        h_copy["model_compatibility"] = "Compatible" if is_compat else compat_details.get("status", "Baseline Required")
+        h_copy["compatibility_message"] = compat_msg
         enriched_hosts.append(h_copy)
 
     return {
@@ -1542,8 +1549,10 @@ def ingest_host_telemetry(
 
     if not is_compat:
         # Gated: Linux host or unsupported OS without dedicated trained model
-        reg.set_host_status(host_id, "TELEMETRY_ONLY")
-        reg.set_host_model_status(host_id, "none", "BASELINE_REQUIRED")
+        h_os = str(host_data.get("operating_system", "")).strip().lower()
+        if h_os == "linux" or "linux" in h_os:
+            reg.set_host_status(host_id, "TELEMETRY_ONLY")
+            reg.set_host_model_status(host_id, "none", "BASELINE_REQUIRED")
     elif is_full and window_arr is not None:
         try:
             latest_inf = inf_mgr.infer_host_window(

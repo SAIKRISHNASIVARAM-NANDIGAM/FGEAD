@@ -71,6 +71,38 @@ FGEAD-main/
 
 ---
 
+## Quick Start - Local Demo
+
+Get FGEAD up and running locally with a single command launcher:
+
+```powershell
+# 1. Clone repository
+git clone https://github.com/SAIKRISHNASIVARAM-NANDIGAM/FGEAD.git
+cd FGEAD-main
+
+# 2. Run automated environment setup
+.\scripts\setup_windows.ps1
+
+# 3. Launch one-command local demo
+.\scripts\start_demo.ps1
+
+# 4. Open dashboard in browser
+# http://localhost:8501
+```
+
+### Services Launched Automatically:
+- **FastAPI REST Gateway**: [http://127.0.0.1:8000](http://127.0.0.1:8000) (Health check: [http://127.0.0.1:8000/health/live](http://127.0.0.1:8000/health/live))
+- **Streamlit Version 3 Interactive Dashboard**: [http://localhost:8501](http://localhost:8501)
+
+### Important Dataset & Telemetry Notes:
+- **SMD Benchmark Dataset (Optional)**: The dashboard gracefully detects if the SMD dataset is not installed and displays an informational notice while keeping Live Monitoring fully usable.
+- **Windows Live Agent (Optional & Machine-Specific)**: The demo launcher does **not** automatically start live telemetry collection. Telemetry agents are machine-specific and require target hardware baseline calibration. To optionally start live telemetry collection on your Windows machine, run:
+  ```powershell
+  .\scripts\start_live_agent.ps1
+  ```
+
+---
+
 ## 6. Installation
 
 ### Option A: Automated PowerShell Setup (Recommended)
