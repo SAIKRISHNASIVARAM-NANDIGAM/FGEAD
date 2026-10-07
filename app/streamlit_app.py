@@ -2243,16 +2243,18 @@ def main():
         show_offline_screen()
         return
 
-    # 2. Load Telemetry Benchmark Dataset (Optional for Live Mode)
+    # 2. Check SMD Benchmark Resources (Dataset & Backend Model)
     test_data, test_labels, test_window_labels = load_raw_smd_dataset()
     has_smd_data = (test_data is not None and test_labels is not None and test_window_labels is not None)
+    has_smd_model = bool(health_info and health_info.get("model_loaded"))
+    has_smd_resources = (has_smd_data and has_smd_model)
 
-    n_windows = len(test_window_labels) if has_smd_data else 0
+    n_windows = len(test_window_labels) if has_smd_resources else 0
     threshold = 2.073376
 
     # Initialize Session State
     if "selected_window_idx" not in st.session_state:
-        st.session_state["selected_window_idx"] = (17485 // 5) if has_smd_data else 0
+        st.session_state["selected_window_idx"] = (17485 // 5) if has_smd_resources else 0
 
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = "Dashboard"
@@ -2370,7 +2372,7 @@ def main():
         in_sidebar=True
     )
 
-    if not has_smd_data and page != "About the Explainable AI System":
+    if not has_smd_resources and page != "About the Explainable AI System":
         render_html(
             """
             <div class="stitch-card" style="border-left: 5px solid #0284c7; padding: 22px 24px;">
@@ -2378,12 +2380,12 @@ def main():
                     ℹ️ SMD Benchmark Dataset Not Installed
                 </div>
                 <div style="font-size: 0.94rem; color: #334155; line-height: 1.6;">
-                    The <strong>Server Machine Dataset (SMD)</strong> benchmark telemetry files (<code>data/SMD/test/machine-1-1.txt</code> and <code>data/SMD/test_label/machine-1-1.txt</code>) were not detected in the local repository.<br><br>
+                    The <strong>Server Machine Dataset (SMD)</strong> benchmark dataset and model resources are not installed in the local environment.<br><br>
                     <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px 16px; margin: 10px 0;">
                         <strong style="color: #15803d;">✓ Live Windows Host Monitoring is fully operational!</strong><br>
                         You can monitor real-time Windows system telemetry, run anomaly detection, and view XAI explanations by selecting <strong>🏢 Fleet Operations Center</strong> in the sidebar dropdown.
                     </div><br>
-                    <em>To enable offline SMD benchmark evaluation, place <code>machine-1-1.txt</code> into <code>data/SMD/test/</code> and <code>data/SMD/test_label/</code> and refresh the dashboard.</em>
+                    <em>To enable offline SMD benchmark evaluation, ensure <code>machine-1-1.txt</code> is present in <code>data/SMD/test/</code> and <code>data/SMD/test_label/</code> and restart the server.</em>
                 </div>
             </div>
             """
