@@ -735,25 +735,31 @@ def fetch_api_alerts(host_id: Optional[str] = None, limit: int = 50) -> List[Dic
 @st.cache_data
 def load_raw_smd_dataset() -> Tuple[np.ndarray, np.ndarray, np.ndarray] | Tuple[None, None, None]:
     """Load real SMD Machine 1-1 test dataset and precompute window anomaly labels."""
-    project_root = Path(__file__).resolve().parent.parent
-    test_path = project_root / "data" / "SMD" / "test" / "machine-1-1.txt"
-    label_path = project_root / "data" / "SMD" / "test_label" / "machine-1-1.txt"
+    try:
+        project_root = Path(__file__).resolve().parent.parent
+        test_path = project_root / "data" / "SMD" / "test" / "machine-1-1.txt"
+        label_path = project_root / "data" / "SMD" / "test_label" / "machine-1-1.txt"
 
-    if not test_path.exists() or not label_path.exists():
+        if not test_path.is_file() or not label_path.is_file():
+            return None, None, None
+
+        test_data = np.loadtxt(test_path, delimiter=",", dtype=np.float32)
+        test_labels = np.loadtxt(label_path, delimiter=",", dtype=np.int32)
+
+        if len(test_data) < 60 or len(test_labels) < 60:
+            return None, None, None
+
+        n_windows = (len(test_data) - 60) // 5 + 1
+        window_labels = []
+        for i in range(n_windows):
+            start = i * 5
+            end = start + 60
+            window_labels.append(1 if np.any(test_labels[start:end] > 0) else 0)
+        window_labels = np.array(window_labels)
+
+        return test_data, test_labels, window_labels
+    except Exception:
         return None, None, None
-
-    test_data = np.loadtxt(test_path, delimiter=",", dtype=np.float32)
-    test_labels = np.loadtxt(label_path, delimiter=",", dtype=np.int32)
-
-    n_windows = (len(test_data) - 60) // 5 + 1
-    window_labels = []
-    for i in range(n_windows):
-        start = i * 5
-        end = start + 60
-        window_labels.append(1 if np.any(test_labels[start:end] > 0) else 0)
-    window_labels = np.array(window_labels)
-
-    return test_data, test_labels, window_labels
 
 
 def get_anomaly_intervals(labels: np.ndarray) -> List[Tuple[int, int]]:
@@ -2237,22 +2243,16 @@ def main():
         show_offline_screen()
         return
 
-    # 2. Load Telemetry Benchmark Dataset
+    # 2. Load Telemetry Benchmark Dataset (Optional for Live Mode)
     test_data, test_labels, test_window_labels = load_raw_smd_dataset()
+    has_smd_data = (test_data is not None and test_labels is not None and test_window_labels is not None)
 
-    if test_data is None:
-        st.error(
-            "CRITICAL: SMD Machine 1-1 telemetry data not found in `data/SMD/`. "
-            "Please ensure the benchmark dataset is placed in the data directory."
-        )
-        return
-
-    n_windows = len(test_window_labels)
+    n_windows = len(test_window_labels) if has_smd_data else 0
     threshold = 2.073376
 
     # Initialize Session State
     if "selected_window_idx" not in st.session_state:
-        st.session_state["selected_window_idx"] = 17485 // 5
+        st.session_state["selected_window_idx"] = (17485 // 5) if has_smd_data else 0
 
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = "Dashboard"
@@ -2369,6 +2369,30 @@ def main():
         """,
         in_sidebar=True
     )
+
+    if not has_smd_data and page != "About the Explainable AI System":
+        render_html(
+            """
+            <div class="stitch-card" style="border-left: 5px solid #0284c7; padding: 22px 24px;">
+                <div class="stitch-card-header" style="color: #0369a1; font-size: 1.15rem; margin-bottom: 12px;">
+                    ℹ️ SMD Benchmark Dataset Not Installed
+                </div>
+                <div style="font-size: 0.94rem; color: #334155; line-height: 1.6;">
+                    The <strong>Server Machine Dataset (SMD)</strong> benchmark telemetry files (<code>data/SMD/test/machine-1-1.txt</code> and <code>data/SMD/test_label/machine-1-1.txt</code>) were not detected in the local repository.<br><br>
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px 16px; margin: 10px 0;">
+                        <strong style="color: #15803d;">✓ Live Windows Host Monitoring is fully operational!</strong><br>
+                        You can monitor real-time Windows system telemetry, run anomaly detection, and view XAI explanations by selecting <strong>🏢 Fleet Operations Center</strong> in the sidebar dropdown.
+                    </div><br>
+                    <em>To enable offline SMD benchmark evaluation, place <code>machine-1-1.txt</code> into <code>data/SMD/test/</code> and <code>data/SMD/test_label/</code> and refresh the dashboard.</em>
+                </div>
+            </div>
+            """
+        )
+        return
+
+    if page == "About the Explainable AI System":
+        render_about_page(health_info)
+        return
 
     # Global window calculations
     current_idx = int(st.session_state["selected_window_idx"])
