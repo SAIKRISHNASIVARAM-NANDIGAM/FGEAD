@@ -46,6 +46,7 @@ checkpoints/*.pth
 checkpoints/*.npy
 
 # Whitelisted Production & Baseline Model Checkpoints
+!checkpoints/fgead_live_windows_22ch_v3_current_machine.pt
 !checkpoints/fgead_live_windows_22ch_v2_current_machine.pt
 !checkpoints/fgead_live_windows_22ch.pt
 !checkpoints/fgead_smd_machine_1_1.pt

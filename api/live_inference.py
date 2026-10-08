@@ -183,14 +183,24 @@ class LiveInferenceService:
 
     def __init__(
         self,
-        checkpoint_path: str = "checkpoints/fgead_live_windows_22ch.pt",
-        scaler_path: str = "checkpoints/fgead_live_scaler.joblib",
-        threshold_path: str = "checkpoints/fgead_live_threshold.json",
-        config_path: str = "checkpoints/fgead_live_windows_22ch_config.json",
+        checkpoint_path: Optional[str] = None,
+        scaler_path: Optional[str] = None,
+        threshold_path: Optional[str] = None,
+        config_path: Optional[str] = None,
         device: Optional[str] = None,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self._lock = threading.RLock()
+
+        v3_ckpt = PROJECT_ROOT / "checkpoints" / "fgead_live_windows_22ch_v3_current_machine.pt"
+        if checkpoint_path is None:
+            checkpoint_path = "checkpoints/fgead_live_windows_22ch_v3_current_machine.pt" if v3_ckpt.exists() else "checkpoints/fgead_live_windows_22ch.pt"
+        if scaler_path is None:
+            scaler_path = "checkpoints/fgead_live_scaler_v3_current_machine.joblib" if v3_ckpt.exists() else "checkpoints/fgead_live_scaler.joblib"
+        if threshold_path is None:
+            threshold_path = "checkpoints/fgead_live_threshold_v3_current_machine.json" if v3_ckpt.exists() else "checkpoints/fgead_live_threshold.json"
+        if config_path is None:
+            config_path = "checkpoints/fgead_live_windows_22ch_config_v3_current_machine.json" if v3_ckpt.exists() else "checkpoints/fgead_live_windows_22ch_config.json"
 
         self.ckpt_path = Path(checkpoint_path)
         if not self.ckpt_path.is_absolute():

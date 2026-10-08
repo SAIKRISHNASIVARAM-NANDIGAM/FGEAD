@@ -250,6 +250,42 @@ class MultiHostInferenceManager:
             self.profiles["windows_sivachowdary_v2"] = v2_profile
             self.profiles["fgead_live_windows_22ch_v2_current_machine"] = v2_profile
 
+        # Windows SivaChowdary Dedicated Current-Machine Model (v3)
+        ckpt_v3 = PROJECT_ROOT / "checkpoints" / "fgead_live_windows_22ch_v3_current_machine.pt"
+        scaler_v3 = PROJECT_ROOT / "checkpoints" / "fgead_live_scaler_v3_current_machine.joblib"
+        config_v3 = PROJECT_ROOT / "checkpoints" / "fgead_live_windows_22ch_config_v3_current_machine.json"
+        thresh_v3_path = PROJECT_ROOT / "checkpoints" / "fgead_live_threshold_v3_current_machine.json"
+        thresh_v3_val = 1.45
+        if thresh_v3_path.exists():
+            try:
+                with open(thresh_v3_path, "r", encoding="utf-8") as f:
+                    t3_data = json.load(f)
+                    thresh_v3_val = float(t3_data.get("threshold", 1.45))
+            except Exception:
+                pass
+
+        if ckpt_v3.exists() and scaler_v3.exists():
+            v3_profile = ModelProfile(
+                profile_id="windows_sivachowdary_v3",
+                name="FGEAD Windows 22-Channel Live Model (v3 Current-Machine)",
+                checkpoint_path=ckpt_v3,
+                scaler_path=scaler_v3,
+                config_path=config_v3,
+                threshold=thresh_v3_val,
+                supported_os=["Windows"],
+                training_host_type="SivaChowdary Windows 11 Physical PC",
+                training_baseline_id="live_baseline_v3_current_machine",
+                feature_schema_version="1.0",
+                scaler_id="fgead_live_scaler_v3_current_machine_joblib",
+                threshold_id="fgead_live_threshold_v3_current_machine_json",
+                profile_type="dedicated host model",
+                is_universal=False,
+                anchor_names=["net_drops_total", "net_errors_total"],
+                device=self.device,
+            )
+            self.profiles["windows_sivachowdary_v3"] = v3_profile
+            self.profiles["fgead_live_windows_22ch_v3_current_machine"] = v3_profile
+
     def get_profile(self, profile_id: str) -> Optional[ModelProfile]:
         with self._lock:
             if not profile_id or profile_id.lower() == "none":

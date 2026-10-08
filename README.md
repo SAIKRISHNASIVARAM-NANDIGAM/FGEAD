@@ -16,6 +16,27 @@ FGEAD (Feature Graph-based Explainable Anomaly Detection) combines graph neural 
 
 ---
 
+## FGEAD V3 Current-Machine Demo
+
+The production live model for `host_sivachowdary` has been rebuilt and validated as **`windows_sivachowdary_v3`**.
+
+- **Model Profile:** `windows_sivachowdary_v3`
+- **Calibrated Threshold ($\tau$):** `2.120169`
+- **Telemetry Window:** $60 \times 22$ (60-second rolling physical telemetry window)
+- **Unseen Normal Held-Out FPR:** `0.00%` (0 / 211 test windows breached threshold)
+- **Specificity:** `100.00%`
+- **Controlled Workload Evaluation:**
+  - **Accuracy:** `90.76%`
+  - **Precision:** `100.00%`
+  - **Recall:** `77.33%`
+  - **F1 Score:** `0.8722`
+- **Average Controlled Detection Delay:** `2.0 seconds`
+- **Known Limitation:** The evaluated physical disk-read workload peaked at an anomaly score of `1.7776`, remaining below the calibrated threshold of `2.120169`, and was correctly classified as undetected (known limitation).
+
+> **CALIBRATION NOTICE**: These empirical validation metrics are derived from the controlled physical evaluation on the primary target laptop (`host_sivachowdary`). They are **not a universal accuracy guarantee for every laptop**. Deploying on new hardware requires baseline collection and calibration.
+
+---
+
 ## 3. Architecture Overview
 
 ### Live Host Monitoring Architecture

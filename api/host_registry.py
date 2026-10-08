@@ -239,8 +239,9 @@ class HostRegistry:
 
                 # Assign model and initial status based on OS compatibility and host profile
                 if is_windows:
+                    v3_ckpt = PROJECT_ROOT / "checkpoints" / "fgead_live_windows_22ch_v3_current_machine.pt"
                     if host_id == "host_sivachowdary" or h_name.lower() == "sivachowdary":
-                        assigned_model_id = "windows_sivachowdary_v2"
+                        assigned_model_id = "windows_sivachowdary_v3" if v3_ckpt.exists() else "windows_sivachowdary_v2"
                     elif existing_row and existing_row["model_id"] and existing_row["model_id"] not in ("none", ""):
                         assigned_model_id = existing_row["model_id"]
                     elif model_id and model_id not in ("none", "windows_default", ""):

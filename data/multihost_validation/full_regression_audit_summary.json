@@ -1,7 +1,7 @@
 {
   "original_regression_suite": "68/68",
-  "phase10_test_suite": "6/6",
-  "combined_suite": "74/74",
+  "phase10_test_suite": "7/7",
+  "combined_suite": "75/75",
   "all_passed": true,
   "operational_hosts_count": 2,
   "operational_hosts": [
@@ -65,10 +65,10 @@
     },
     "test_phase10_v2_model.py": {
       "description": "Phase 10 Current-Machine Dedicated Model Suite (6)",
-      "total": 6,
+      "total": 7,
       "errors": 0,
       "failures": 0,
-      "passed": 6,
+      "passed": 7,
       "is_phase10": true
     },
     "test_multihost_suite.py": {

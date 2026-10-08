@@ -1404,8 +1404,14 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
     total_hosts = fleet.get("total_hosts", 0)
     online_hosts = fleet.get("online_hosts", 0)
     offline_hosts = fleet.get("offline_hosts", 0)
-    anom_hosts = fleet.get("hosts_with_anomalies", 0)
-    active_eps = fleet.get("total_active_episodes", 0)
+
+    scan_requested = bool(
+        st.session_state.get("system_scan_requested", False) or
+        st.session_state.get("scan_active_fleet", False)
+    )
+
+    anom_hosts = fleet.get("hosts_with_anomalies", 0) if scan_requested else 0
+    active_eps = fleet.get("total_active_episodes", 0) if scan_requested else 0
 
     col_hdr, col_ctrl = st.columns([7, 5])
     with col_hdr:
@@ -1426,7 +1432,9 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
         col_fl1, col_fl2 = st.columns([1, 1])
         with col_fl1:
             if st.button("🔍 Scan My System", type="primary", use_container_width=True, key="btn_scan_fleet"):
+                st.session_state["system_scan_requested"] = True
                 st.session_state["scan_active_fleet"] = True
+                st.rerun()
         with col_fl2:
             if st.button("🔄 Refresh Fleet", use_container_width=True, key="btn_refresh_fleet"):
                 st.session_state["scan_active_fleet"] = False
@@ -1436,6 +1444,48 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
     if st.session_state.get("scan_active_fleet"):
         target_hid = hosts[0]["host_id"] if hosts else "host_sivachowdary"
         render_system_scan_panel(target_hid)
+    elif not scan_requested:
+        render_html(
+            """
+            <div class="stitch-card" style="border-left: 6px solid #2563eb; background-color: #ffffff; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.8px;">
+                            🔍 SYSTEM SCAN REQUIRED
+                        </div>
+                        <div style="font-family: 'Outfit', sans-serif; font-size: 1.40rem; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                            Fleet Ready for Telemetry Scan
+                        </div>
+                        <div style="font-size: 0.86rem; color: #475569; margin-top: 4px;">
+                            Multi-host telemetry streams are connected and streaming. Press <strong>"Scan My System"</strong> above to evaluate host anomaly threshold boundaries and surface active episodes.
+                        </div>
+                    </div>
+                    <div>
+                        <span style="background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 0.82rem; font-weight: 700; padding: 4px 10px; border-radius: 6px;">
+                            ⚪ READY TO SCAN
+                        </span>
+                    </div>
+                </div>
+                <div class="step-flow-bar" style="margin-top: 14px; margin-bottom: 0; background-color: #f8fafc;">
+                    <div class="step-flow-item active">
+                        <span class="step-flow-badge">1</span> Telemetry Ingestion (🟢 22 Channels Sampled)
+                    </div>
+                    <span class="step-flow-arrow">➔</span>
+                    <div class="step-flow-item">
+                        <span class="step-flow-badge">2</span> Scan Validation (⚪ Pending Explicit Scan)
+                    </div>
+                    <span class="step-flow-arrow">➔</span>
+                    <div class="step-flow-item">
+                        <span class="step-flow-badge">3</span> 60s Window Analysis (⚪ Pending Explicit Scan)
+                    </div>
+                    <span class="step-flow-arrow">➔</span>
+                    <div class="step-flow-item">
+                        <span class="step-flow-badge">4</span> Persistence & Evidence (⚪ Pending Explicit Scan)
+                    </div>
+                </div>
+            </div>
+            """
+        )
 
     # 1. FLEET KPI CARDS
     render_html(
@@ -1461,14 +1511,14 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
 
             <div class="stitch-card" style="margin-bottom: 0; padding: 14px 16px;">
                 <div style="font-size: 0.70rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Active Anomalies</div>
-                <div style="font-family: 'Outfit', sans-serif; font-size: 1.80rem; font-weight: 800; color: {'#dc2626' if anom_hosts > 0 else '#16a34a'}; margin: 2px 0;">{anom_hosts}</div>
-                <div style="font-size: 0.75rem; color: #64748b;">Hosts Above Threshold</div>
+                <div style="font-family: 'Outfit', sans-serif; font-size: 1.80rem; font-weight: 800; color: {'#dc2626' if anom_hosts > 0 else '#16a34a'}; margin: 2px 0;">{'—' if not scan_requested else anom_hosts}</div>
+                <div style="font-size: 0.75rem; color: #64748b;">{'Scan Required' if not scan_requested else 'Hosts Above Threshold'}</div>
             </div>
 
             <div class="stitch-card" style="margin-bottom: 0; padding: 14px 16px;">
                 <div style="font-size: 0.70rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Active Episodes</div>
-                <div style="font-family: 'Outfit', sans-serif; font-size: 1.80rem; font-weight: 800; color: {'#dc2626' if active_eps > 0 else '#475569'}; margin: 2px 0;">{active_eps}</div>
-                <div style="font-size: 0.75rem; color: #64748b;">Contiguous Anomaly Windows</div>
+                <div style="font-family: 'Outfit', sans-serif; font-size: 1.80rem; font-weight: 800; color: {'#dc2626' if active_eps > 0 else '#475569'}; margin: 2px 0;">{'—' if not scan_requested else active_eps}</div>
+                <div style="font-size: 0.75rem; color: #64748b;">{'Scan Required' if not scan_requested else 'Contiguous Anomaly Windows'}</div>
             </div>
         </div>
         """
@@ -1519,19 +1569,27 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
             telemetry_badge = "🟢 Connected" if is_telemetry else "⚪ Inactive"
 
             # Host Status Badge
-            if status == "ANOMALY":
-                status_badge = "🔴 ANOMALY"
-            elif status == "ONLINE":
-                status_badge = "🟢 MODEL ACTIVE"
-            elif status == "TELEMETRY_ONLY":
-                status_badge = "🟡 TELEMETRY ONLY"
+            if not scan_requested:
+                if status == "OFFLINE":
+                    status_badge = "⚪ OFFLINE"
+                elif status == "TELEMETRY_ONLY" or model_compat != "Compatible":
+                    status_badge = "🟡 TELEMETRY ONLY"
+                else:
+                    status_badge = "🟢 MODEL READY"
             else:
-                status_badge = "⚪ OFFLINE"
+                if status == "ANOMALY":
+                    status_badge = "🔴 ANOMALY"
+                elif status == "ONLINE":
+                    status_badge = "🟢 MODEL ACTIVE"
+                elif status == "TELEMETRY_ONLY":
+                    status_badge = "🟡 TELEMETRY ONLY"
+                else:
+                    status_badge = "⚪ OFFLINE"
 
             # Score & Threshold formatting
-            if status == "TELEMETRY_ONLY" or model_compat != "Compatible":
+            if not scan_requested or status == "TELEMETRY_ONLY" or model_compat != "Compatible":
                 score_str = "—"
-                thresh_str = "—"
+                thresh_str = f"{thresh:.4f}" if thresh else "—"
                 ep_str = "—"
             elif score is not None:
                 score_str = f"{score:.4f}"
@@ -1566,8 +1624,8 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
     render_html("</div>")
 
     # 3. RECENT ALERTS FEED
-    alerts = fetch_api_alerts(limit=10)
-    if alerts:
+    alerts = fetch_api_alerts(limit=10) if scan_requested else []
+    if scan_requested and alerts:
         render_html(
             """
             <div class="stitch-card" style="margin-bottom: 20px;">
@@ -1594,6 +1652,19 @@ def render_fleet_overview_page(health_info: Dict[str, Any]):
             })
         st.dataframe(pd.DataFrame(alert_rows), use_container_width=True, hide_index=True)
         render_html("</div>")
+    elif not scan_requested:
+        render_html(
+            """
+            <div class="stitch-card" style="margin-bottom: 20px;">
+                <div class="stitch-card-header">
+                    🚨 Recent Fleet Alerts & Anomaly Episodes
+                </div>
+                <div style="font-size: 0.84rem; color: #64748b; padding: 12px 0;">
+                    ℹ️ Explicit system scan required to evaluate host anomaly boundaries and display active alert episodes. Press <strong>"Scan My System"</strong> above to run an explicit scan.
+                </div>
+            </div>
+            """
+        )
 
     # 4. PRIVACY & SECURITY GUIDELINES
     render_html(
@@ -2029,15 +2100,64 @@ def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
         col_ctrl1, col_ctrl2 = st.columns([1, 1])
         with col_ctrl1:
             if st.button("🔍 Scan My System", type="primary", use_container_width=True, key=f"btn_scan_{host_id}"):
+                st.session_state["system_scan_requested"] = True
                 st.session_state[f"scan_active_{host_id}"] = True
+                st.rerun()
         with col_ctrl2:
             if st.button("🔄 Refresh Snapshot", use_container_width=True, key=f"btn_refresh_{host_id}"):
                 st.session_state[f"scan_active_{host_id}"] = False
                 st.rerun()
 
+    scan_requested = bool(
+        st.session_state.get("system_scan_requested", False) or
+        st.session_state.get(f"scan_active_{host_id}", False)
+    )
+
     # Render system scan panel if triggered
     if st.session_state.get(f"scan_active_{host_id}"):
         render_system_scan_panel(host_id)
+    elif not scan_requested and is_connected and is_compat:
+        render_html(
+            """
+            <div class="stitch-card" style="border-left: 6px solid #2563eb; background-color: #ffffff; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.8px;">
+                            🔍 SYSTEM SCAN REQUIRED
+                        </div>
+                        <div style="font-family: 'Outfit', sans-serif; font-size: 1.40rem; font-weight: 800; color: #0f172a; margin-top: 2px;">
+                            Explicit System Scan Required
+                        </div>
+                        <div style="font-size: 0.86rem; color: #475569; margin-top: 4px;">
+                            Real-time telemetry streams are connected and buffering. Press <strong>"Scan My System"</strong> above to run spatio-temporal anomaly detection, evaluate threshold boundaries, and view explainability narratives.
+                        </div>
+                    </div>
+                    <div>
+                        <span style="background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 0.82rem; font-weight: 700; padding: 4px 10px; border-radius: 6px;">
+                            ⚪ READY TO SCAN
+                        </span>
+                    </div>
+                </div>
+                <div class="step-flow-bar" style="margin-top: 14px; margin-bottom: 0; background-color: #f8fafc;">
+                    <div class="step-flow-item active">
+                        <span class="step-flow-badge">1</span> Telemetry Ingestion (🟢 22 Channels Sampled)
+                    </div>
+                    <span class="step-flow-arrow">➔</span>
+                    <div class="step-flow-item">
+                        <span class="step-flow-badge">2</span> Scan Validation (⚪ Pending Explicit Scan)
+                    </div>
+                    <span class="step-flow-arrow">➔</span>
+                    <div class="step-flow-item">
+                        <span class="step-flow-badge">3</span> 60s Window Analysis (⚪ Pending Explicit Scan)
+                    </div>
+                    <span class="step-flow-arrow">➔</span>
+                    <div class="step-flow-item">
+                        <span class="step-flow-badge">4</span> Persistence & Evidence (⚪ Pending Explicit Scan)
+                    </div>
+                </div>
+            </div>
+            """
+        )
 
     # 2. SYSTEM STATUS (5 Clean Metric Cards)
     if latest_feats and is_connected:
@@ -2098,7 +2218,7 @@ def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
             """
         )
 
-    # 3. STATUS HERO CARD
+    # 3. STATUS HERO CARD & EXPLAINABILITY (ONLY WHEN SCAN HAS BEEN REQUESTED)
     if not is_connected:
         render_html(
             f"""
@@ -2198,7 +2318,7 @@ def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
             </div>
             """
         )
-    elif is_connected and is_buf_full and live_analysis and live_analysis.get("latest_inference"):
+    elif scan_requested and is_connected and is_buf_full and live_analysis and live_analysis.get("latest_inference"):
         inf = live_analysis["latest_inference"]
         is_anom = inf.get("is_anomaly", False)
         score = inf.get("anomaly_score", 0.0)
@@ -2327,8 +2447,8 @@ def render_single_host_page(host_id: str, health_info: Dict[str, Any]):
             is_anomaly=is_anom,
         )
 
-    # 7. ANOMALY SCORE TIMELINE
-    if live_analysis:
+    # 7. ANOMALY SCORE TIMELINE (ONLY WHEN SCAN HAS BEEN REQUESTED)
+    if scan_requested and live_analysis:
         score_hist = live_analysis.get("score_history", [])
         if score_hist:
             active_tau = live_analysis.get("latest_inference", {}).get("threshold", 1.411807 if "v2" in str(live_analysis.get("latest_inference", {}).get("model_id", "")) else 1.859450)

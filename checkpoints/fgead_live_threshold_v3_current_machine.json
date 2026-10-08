@@ -1,0 +1,17 @@
+{
+  "threshold": 2.120169,
+  "calibration_method": "Percentile_P99.5_plus_safety_margin",
+  "calibration_dataset": "v3_train_normal + v3_cal_normal",
+  "calibration_window_count": 1412,
+  "validation_score_statistics": {
+    "mean": 0.49352213740348816,
+    "std": 0.4214867055416107,
+    "min": 0.09373755753040314,
+    "max": 2.566431999206543,
+    "p95": 1.1475693047046662,
+    "p99": 2.0492893648147588,
+    "p99.5": 2.056946210861206
+  },
+  "selected_threshold": 2.120169,
+  "reason_for_selection": "Calibrated on 100% normal non-synthetic telemetry windows to enforce held-out FPR <= 1% and specificity >= 99%."
+}

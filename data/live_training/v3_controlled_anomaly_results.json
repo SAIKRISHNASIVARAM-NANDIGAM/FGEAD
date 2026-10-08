@@ -1,0 +1,122 @@
+{
+  "status": "FAILED",
+  "workload_experiments": [
+    {
+      "workload_id": "A",
+      "name": "CPU-Intensive Workload",
+      "type": "CPU_STRESS",
+      "ground_truth": "ANOMALY",
+      "detected": true,
+      "detection_delay_sec": 2.0,
+      "peak_score": 3.067146,
+      "mean_anomaly_phase_score": 2.901753,
+      "threshold": 2.120169,
+      "recovery_time_sec": 0.0,
+      "top_contributing_features": [
+        "cpu_ctx_switches_per_sec",
+        "cpu_user_time_percent",
+        "cpu_percent"
+      ],
+      "passed_delay_gate": true
+    },
+    {
+      "workload_id": "B",
+      "name": "Disk-Write Burst",
+      "type": "DISK_WRITE_BURST",
+      "ground_truth": "ANOMALY",
+      "detected": true,
+      "detection_delay_sec": 2.0,
+      "peak_score": 5.985415,
+      "mean_anomaly_phase_score": 5.784244,
+      "threshold": 2.120169,
+      "recovery_time_sec": 0.0,
+      "top_contributing_features": [
+        "disk_write_bytes_per_sec",
+        "disk_write_count_per_sec",
+        "cpu_interrupts_per_sec"
+      ],
+      "passed_delay_gate": true
+    },
+    {
+      "workload_id": "C",
+      "name": "Disk-Read Burst",
+      "type": "DISK_READ_BURST",
+      "ground_truth": "ANOMALY",
+      "detected": false,
+      "detection_delay_sec": -1.0,
+      "peak_score": 1.777591,
+      "mean_anomaly_phase_score": 1.342593,
+      "threshold": 2.120169,
+      "recovery_time_sec": 0.0,
+      "top_contributing_features": [
+        "disk_read_count_per_sec",
+        "disk_read_bytes_per_sec",
+        "cpu_interrupts_per_sec"
+      ],
+      "passed_delay_gate": false
+    },
+    {
+      "workload_id": "D",
+      "name": "Network Ingress/Egress Burst",
+      "type": "NETWORK_BURST",
+      "ground_truth": "ANOMALY",
+      "detected": true,
+      "detection_delay_sec": 2.0,
+      "peak_score": 99.601929,
+      "mean_anomaly_phase_score": 95.928063,
+      "threshold": 2.120169,
+      "recovery_time_sec": 0.0,
+      "top_contributing_features": [
+        "net_bytes_recv_per_sec",
+        "net_packets_recv_per_sec",
+        "cpu_interrupts_per_sec"
+      ],
+      "passed_delay_gate": true
+    },
+    {
+      "workload_id": "E",
+      "name": "Combined CPU + Storage Workload",
+      "type": "COMBINED_CPU_STORAGE",
+      "ground_truth": "ANOMALY",
+      "detected": true,
+      "detection_delay_sec": 2.0,
+      "peak_score": 5.477806,
+      "mean_anomaly_phase_score": 5.208331,
+      "threshold": 2.120169,
+      "recovery_time_sec": 0.0,
+      "top_contributing_features": [
+        "disk_write_bytes_per_sec",
+        "disk_write_count_per_sec",
+        "cpu_system_time_percent"
+      ],
+      "passed_delay_gate": true
+    }
+  ],
+  "confusion_matrix": {
+    "TP": 116,
+    "TN": 211,
+    "FP": 0,
+    "FN": 34,
+    "total_windows_evaluated": 361
+  },
+  "performance_metrics": {
+    "accuracy": 0.905817,
+    "precision": 1.0,
+    "recall_detection_rate": 0.773333,
+    "f1_score": 0.87218,
+    "specificity": 1.0,
+    "false_positive_rate": 0.0,
+    "average_detection_delay_sec": 2.0,
+    "average_recovery_time_sec": 0.0
+  },
+  "acceptance_criteria": {
+    "cpu_detected": true,
+    "disk_write_detected": true,
+    "disk_read_detected": false,
+    "network_detected": true,
+    "combined_detected": true,
+    "detection_delay_lte_5s": true,
+    "fpr_lte_1pct": true,
+    "specificity_gte_99pct": true
+  }
+}

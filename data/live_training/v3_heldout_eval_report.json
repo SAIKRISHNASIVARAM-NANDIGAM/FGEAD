@@ -1,0 +1,17 @@
+{
+  "status": "PASSED",
+  "heldout_test_windows": 211,
+  "threshold": 2.120169,
+  "mean_score": 0.317394,
+  "median_score": 0.285228,
+  "std_score": 0.067034,
+  "p95_score": 0.410547,
+  "p99_score": 0.456636,
+  "max_score": 0.547307,
+  "false_positives": 0,
+  "true_negatives": 211,
+  "false_positive_rate_pct": 0.0,
+  "specificity_pct": 100.0,
+  "passed_fpr_gate": true,
+  "passed_specificity_gate": true
+}
