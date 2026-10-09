@@ -1,0 +1,345 @@
+{
+  "evaluation_timestamp": "2026-10-09T07:11:33.098406+00:00",
+  "model_id": "windows_sivachowdary_v3",
+  "threshold": 2.120169,
+  "window_shape": [
+    60,
+    22
+  ],
+  "window_level_metrics": {
+    "total_windows_evaluated": 550,
+    "true_positives": 87,
+    "true_negatives": 310,
+    "false_positives": 120,
+    "false_negatives": 33,
+    "accuracy_pct": 72.18,
+    "precision_pct": 42.03,
+    "recall_pct": 72.5,
+    "f1_score": 53.21,
+    "specificity_pct": 72.09,
+    "false_positive_rate_pct": 27.91
+  },
+  "event_level_metrics": {
+    "total_events_evaluated": 6,
+    "true_positives": 3,
+    "true_negatives": 2,
+    "false_positives": 0,
+    "false_negatives": 1,
+    "accuracy_pct": 83.33,
+    "precision_pct": 100.0,
+    "recall_pct": 75.0,
+    "f1_score": 85.71,
+    "specificity_pct": 100.0,
+    "false_positive_rate_pct": 0.0,
+    "avg_detection_delay_sec": 2.0,
+    "avg_recovery_time_sec": 0.0
+  },
+  "scenario_results": [
+    {
+      "test_id": "TEST_A",
+      "scenario_name": "Normal Idle Operation (Baseline)",
+      "ground_truth": "NORMAL",
+      "detected": false,
+      "detection_status": "\ud83d\udfe2 NOMINAL PASS",
+      "peak_score": 1.149,
+      "threshold": 2.120169,
+      "score_ratio": 0.54,
+      "detection_delay_sec": null,
+      "recovery_time_sec": 0.0,
+      "top_contributing_features": [
+        {
+          "rank": 1,
+          "feature": "net_packets_recv_per_sec",
+          "feature_description": "Network packets received per second (pkts/sec)",
+          "actual_value": 21.1,
+          "predicted_value": 54.46,
+          "residual": 0.4677,
+          "contribution_pct": 11.7
+        },
+        {
+          "rank": 2,
+          "feature": "net_packets_sent_per_sec",
+          "feature_description": "Network packets transmitted per second (pkts/sec)",
+          "actual_value": 6.0,
+          "predicted_value": 52.91,
+          "residual": 0.4326,
+          "contribution_pct": 10.8
+        },
+        {
+          "rank": 3,
+          "feature": "net_bytes_sent_per_sec",
+          "feature_description": "Network outbound egress bandwidth (bytes/sec)",
+          "actual_value": 1941.2,
+          "predicted_value": 46314.37,
+          "residual": 0.4102,
+          "contribution_pct": 10.3
+        }
+      ],
+      "recommendations": {
+        "primary_subsystem": "Network & Communications",
+        "observed_evidence": "Elevated Number of network packets received each second observed at 21.1 pkts/s (expected ~54.5 pkts/s).",
+        "why_it_matters": "High network ingress/egress consumes interface bandwidth and socket buffers.",
+        "recommended_action": "1. Open Windows Resource Monitor \u2192 Network tab.\n2. Identify processes with active Network I/O.\n3. Verify if a software download, streaming video, cloud sync, or OS update is expected.\n4. Pause or throttle optional downloads if bandwidth is constrained.",
+        "expected_result": "Network bytes/sec and packet rates will return to baseline (~10\u201350 KB/s).",
+        "suggested_verification": "Rescan system telemetry after network activity settles.",
+        "cause_classification": "Likely Cause: Active Download / Network Synchronization (Requires User Verification)",
+        "confidence_limitation": "Model attribution identifies network traffic deviation; process-level identity must be verified in Resource Monitor."
+      }
+    },
+    {
+      "test_id": "TEST_B",
+      "scenario_name": "Normal Laptop Usage (Unseen Held-Out Test Set)",
+      "ground_truth": "NORMAL",
+      "detected": false,
+      "detection_status": "\ud83d\udfe2 NOMINAL PASS",
+      "peak_score": 0.5473,
+      "threshold": 2.120169,
+      "score_ratio": 0.26,
+      "detection_delay_sec": null,
+      "recovery_time_sec": 0.0,
+      "top_contributing_features": [
+        {
+          "rank": 1,
+          "feature": "cpu_user_time_percent",
+          "feature_description": "CPU execution time in user space (%)",
+          "actual_value": 0.4,
+          "predicted_value": 7.39,
+          "residual": 0.9328,
+          "contribution_pct": 16.9
+        },
+        {
+          "rank": 2,
+          "feature": "cpu_percent",
+          "feature_description": "Total CPU utilization across all logical cores (%)",
+          "actual_value": 1.2,
+          "predicted_value": 11.56,
+          "residual": 0.7649,
+          "contribution_pct": 13.9
+        },
+        {
+          "rank": 3,
+          "feature": "process_count",
+          "feature_description": "Total active operating system processes",
+          "actual_value": 324.0,
+          "predicted_value": 325.8,
+          "residual": 0.6769,
+          "contribution_pct": 12.3
+        }
+      ],
+      "recommendations": {
+        "primary_subsystem": "Processor & Compute Workload",
+        "observed_evidence": "Elevated CPU time used by applications observed at 0.4% (expected ~7.4%).",
+        "why_it_matters": "High CPU utilization and rapid context switching increase processor temperature and cause thread starvation.",
+        "recommended_action": "1. Open Windows Task Manager \u2192 Processes tab.\n2. Sort processes by CPU (%) to locate top processor consumers.\n3. Determine if multi-threaded compilation, video rendering, or browser script execution is expected.\n4. Close unneeded background applications if CPU utilization remains saturated.",
+        "expected_result": "CPU utilization and context switch rates will fall back to nominal (< 15% CPU, < 25k switches/s).",
+        "suggested_verification": "Re-run Scan My System after closing CPU-intensive tasks.",
+        "cause_classification": "Likely Cause: High CPU Compute / Multi-Threaded Task (Requires User Verification)",
+        "confidence_limitation": "Model residual pinpoints CPU subsystem excursion; confirm process names in Task Manager."
+      }
+    },
+    {
+      "test_id": "TEST_C",
+      "scenario_name": "Controlled CPU-Intensive Workload",
+      "ground_truth": "ANOMALY",
+      "detected": true,
+      "detection_status": "\ud83d\udfe2 DETECTED",
+      "peak_score": 3.1042,
+      "threshold": 2.120169,
+      "score_ratio": 1.46,
+      "detection_delay_sec": 2.0,
+      "recovery_time_sec": -1.0,
+      "top_contributing_features": [
+        {
+          "rank": 1,
+          "feature": "cpu_ctx_switches_per_sec",
+          "feature_description": "System context switch rate (events/sec)",
+          "actual_value": 479794.47,
+          "predicted_value": 21212.92,
+          "residual": 5.692,
+          "contribution_pct": 34.3
+        },
+        {
+          "rank": 2,
+          "feature": "cpu_user_time_percent",
+          "feature_description": "CPU execution time in user space (%)",
+          "actual_value": 91.34,
+          "predicted_value": 7.39,
+          "residual": 3.5928,
+          "contribution_pct": 21.6
+        },
+        {
+          "rank": 3,
+          "feature": "cpu_percent",
+          "feature_description": "Total CPU utilization across all logical cores (%)",
+          "actual_value": 97.87,
+          "predicted_value": 11.56,
+          "residual": 2.567,
+          "contribution_pct": 15.5
+        }
+      ],
+      "recommendations": {
+        "primary_subsystem": "Processor & Compute Workload",
+        "observed_evidence": "Elevated How frequently the operating system switches between running tasks observed at 479,794 events/s (expected ~21,213 events/s).",
+        "why_it_matters": "High CPU utilization and rapid context switching increase processor temperature and cause thread starvation.",
+        "recommended_action": "1. Open Windows Task Manager \u2192 Processes tab.\n2. Sort processes by CPU (%) to locate top processor consumers.\n3. Determine if multi-threaded compilation, video rendering, or browser script execution is expected.\n4. Close unneeded background applications if CPU utilization remains saturated.",
+        "expected_result": "CPU utilization and context switch rates will fall back to nominal (< 15% CPU, < 25k switches/s).",
+        "suggested_verification": "Re-run Scan My System after closing CPU-intensive tasks.",
+        "cause_classification": "Likely Cause: High CPU Compute / Multi-Threaded Task (Requires User Verification)",
+        "confidence_limitation": "Model residual pinpoints CPU subsystem excursion; confirm process names in Task Manager."
+      }
+    },
+    {
+      "test_id": "TEST_D",
+      "scenario_name": "Controlled Disk-Write Workload",
+      "ground_truth": "ANOMALY",
+      "detected": true,
+      "detection_status": "\ud83d\udfe2 DETECTED",
+      "peak_score": 6.0501,
+      "threshold": 2.120169,
+      "score_ratio": 2.85,
+      "detection_delay_sec": 2.0,
+      "recovery_time_sec": -1.0,
+      "top_contributing_features": [
+        {
+          "rank": 1,
+          "feature": "disk_write_bytes_per_sec",
+          "feature_description": "Disk storage write throughput (bytes/sec)",
+          "actual_value": 111189.8,
+          "predicted_value": 389090.88,
+          "residual": 41.4461,
+          "contribution_pct": 68.4
+        },
+        {
+          "rank": 2,
+          "feature": "disk_write_count_per_sec",
+          "feature_description": "Disk write I/O operations rate (IOPS)",
+          "actual_value": 20.1,
+          "predicted_value": 22.91,
+          "residual": 12.2461,
+          "contribution_pct": 20.2
+        },
+        {
+          "rank": 3,
+          "feature": "cpu_user_time_percent",
+          "feature_description": "CPU execution time in user space (%)",
+          "actual_value": 3.4,
+          "predicted_value": 7.39,
+          "residual": 1.171,
+          "contribution_pct": 1.9
+        }
+      ],
+      "recommendations": {
+        "primary_subsystem": "Storage I/O",
+        "observed_evidence": "Elevated Amount of data written to storage each second observed at 108.58 KB/s (expected ~379.97 KB/s).",
+        "why_it_matters": "Sustained high write throughput causes disk queue buildup and I/O latency.",
+        "recommended_action": "1. Open Windows Resource Monitor \u2192 Disk tab.\n2. Inspect 'Processes with Disk Activity' sorted by Write (B/s).\n3. Check whether an application installation, database commit, video export, or file extraction is active.\n4. Do not force-terminate processes or delete files automatically.",
+        "expected_result": "Disk write bytes/sec will return to normal baseline (< 1 MB/s).",
+        "suggested_verification": "Run Scan My System after file write operations complete.",
+        "cause_classification": "Likely Cause: Heavy File Write / Application Export (Requires User Verification)",
+        "confidence_limitation": "Model attribution highlights storage write residual; specific file path requires OS Disk Monitor confirmation."
+      }
+    },
+    {
+      "test_id": "TEST_E",
+      "scenario_name": "Controlled Disk-Read Workload",
+      "ground_truth": "ANOMALY",
+      "detected": false,
+      "detection_status": "\ud83d\udd34 UNDETECTED",
+      "peak_score": 1.7776,
+      "threshold": 2.120169,
+      "score_ratio": 0.84,
+      "detection_delay_sec": -1.0,
+      "recovery_time_sec": -1.0,
+      "top_contributing_features": [
+        {
+          "rank": 1,
+          "feature": "disk_read_count_per_sec",
+          "feature_description": "Disk read I/O operations rate (IOPS)",
+          "actual_value": 1.0,
+          "predicted_value": 23.71,
+          "residual": 7.5797,
+          "contribution_pct": 37.0
+        },
+        {
+          "rank": 2,
+          "feature": "disk_read_bytes_per_sec",
+          "feature_description": "Disk storage read throughput (bytes/sec)",
+          "actual_value": 32996.8,
+          "predicted_value": 1726652.83,
+          "residual": 4.9938,
+          "contribution_pct": 24.4
+        },
+        {
+          "rank": 3,
+          "feature": "cpu_interrupts_per_sec",
+          "feature_description": "Hardware interrupt rate (events/sec)",
+          "actual_value": 25735.5,
+          "predicted_value": 14722.06,
+          "residual": 1.0908,
+          "contribution_pct": 5.3
+        }
+      ],
+      "recommendations": {
+        "primary_subsystem": "Storage I/O",
+        "observed_evidence": "Elevated Number of storage read operations each second observed at 1.0 IOPS (expected ~23.7 IOPS).",
+        "why_it_matters": "High disk read IOPS/throughput increases read latency for concurrent applications.",
+        "recommended_action": "1. Open Task Manager \u2192 Performance \u2192 Disk.\n2. Check if Windows Search Indexer, Antivirus File Scan, or database query is active.\n3. Allow routine background indexing or security scans to finish cleanly.",
+        "expected_result": "Disk read IOPS and throughput will normalize once file scanning completes.",
+        "suggested_verification": "Rescan after background scanning completes.",
+        "cause_classification": "Likely Cause: File Search / Security Inspection (Requires User Verification)",
+        "confidence_limitation": "Model attribution notes elevated read IOPS; verify scanning process in Task Manager."
+      }
+    },
+    {
+      "test_id": "TEST_F",
+      "scenario_name": "Controlled Network Inbound Burst",
+      "ground_truth": "ANOMALY",
+      "detected": true,
+      "detection_status": "\ud83d\udfe2 DETECTED",
+      "peak_score": 99.6879,
+      "threshold": 2.120169,
+      "score_ratio": 47.02,
+      "detection_delay_sec": 2.0,
+      "recovery_time_sec": -1.0,
+      "top_contributing_features": [
+        {
+          "rank": 1,
+          "feature": "net_bytes_recv_per_sec",
+          "feature_description": "Network inbound ingress bandwidth (bytes/sec)",
+          "actual_value": 2003.9,
+          "predicted_value": 10970.03,
+          "residual": 843.7545,
+          "contribution_pct": 77.4
+        },
+        {
+          "rank": 2,
+          "feature": "net_packets_recv_per_sec",
+          "feature_description": "Network packets received per second (pkts/sec)",
+          "actual_value": 16.1,
+          "predicted_value": 54.46,
+          "residual": 240.5202,
+          "contribution_pct": 22.1
+        },
+        {
+          "rank": 3,
+          "feature": "cpu_interrupts_per_sec",
+          "feature_description": "Hardware interrupt rate (events/sec)",
+          "actual_value": 29046.7,
+          "predicted_value": 14722.06,
+          "residual": 0.999,
+          "contribution_pct": 0.1
+        }
+      ],
+      "recommendations": {
+        "primary_subsystem": "Network & Communications",
+        "observed_evidence": "Elevated Amount of network data received each second observed at 1.96 KB/s (expected ~10.71 KB/s).",
+        "why_it_matters": "High network ingress/egress consumes interface bandwidth and socket buffers.",
+        "recommended_action": "1. Open Windows Resource Monitor \u2192 Network tab.\n2. Identify processes with active Network I/O.\n3. Verify if a software download, streaming video, cloud sync, or OS update is expected.\n4. Pause or throttle optional downloads if bandwidth is constrained.",
+        "expected_result": "Network bytes/sec and packet rates will return to baseline (~10\u201350 KB/s).",
+        "suggested_verification": "Rescan system telemetry after network activity settles.",
+        "cause_classification": "Likely Cause: Active Download / Network Synchronization (Requires User Verification)",
+        "confidence_limitation": "Model attribution identifies network traffic deviation; process-level identity must be verified in Resource Monitor."
+      }
+    }
+  ]
+}
