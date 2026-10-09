@@ -49,10 +49,10 @@ This report documents the validation of the **FGEAD V3 Current-Machine Model** a
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **TEST_A** | Normal Idle Operation (Baseline) | `NORMAL` | 🟢 NOMINAL PASS | **1.149** | 2.120169 | **0.54x** | N/A | `net_packets_recv_per_sec` |
 | **TEST_B** | Normal Laptop Usage (Unseen Held-Out Test Set) | `NORMAL` | 🟢 NOMINAL PASS | **0.5473** | 2.120169 | **0.26x** | N/A | `cpu_user_time_percent` |
-| **TEST_C** | Controlled CPU-Intensive Workload | `ANOMALY` | 🟢 DETECTED | **3.1042** | 2.120169 | **1.46x** | 2.0s | `cpu_ctx_switches_per_sec` |
-| **TEST_D** | Controlled Disk-Write Workload | `ANOMALY` | 🟢 DETECTED | **6.0501** | 2.120169 | **2.85x** | 2.0s | `disk_write_bytes_per_sec` |
+| **TEST_C** | Controlled CPU-Intensive Workload | `ANOMALY` | 🟢 DETECTED | **3.0765** | 2.120169 | **1.45x** | 2.0s | `cpu_ctx_switches_per_sec` |
+| **TEST_D** | Controlled Disk-Write Workload | `ANOMALY` | 🟢 DETECTED | **6.121** | 2.120169 | **2.89x** | 2.0s | `disk_write_bytes_per_sec` |
 | **TEST_E** | Controlled Disk-Read Workload | `ANOMALY` | 🔴 UNDETECTED | **1.7776** | 2.120169 | **0.84x** | -1.0s | `disk_read_count_per_sec` |
-| **TEST_F** | Controlled Network Inbound Burst | `ANOMALY` | 🟢 DETECTED | **99.6879** | 2.120169 | **47.02x** | 2.0s | `net_bytes_recv_per_sec` |
+| **TEST_F** | Controlled Network Inbound Burst | `ANOMALY` | 🟢 DETECTED | **101.6337** | 2.120169 | **47.94x** | 2.0s | `net_bytes_recv_per_sec` |
 
 ---
 
