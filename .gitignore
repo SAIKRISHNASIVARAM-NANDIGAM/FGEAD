@@ -1,11 +1,15 @@
+# ============================================================
 # Environments & Virtual Environments
+# ============================================================
 venv/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 
+# ============================================================
 # Security & Secret Configurations
+# ============================================================
 .env
 .env.*
 !.env.example
@@ -14,7 +18,9 @@ live_agent_config.json
 *.secret
 *.key
 
+# ============================================================
 # Runtime Databases & Database Backups
+# ============================================================
 *.db
 *.sqlite
 *.sqlite3
@@ -24,7 +30,9 @@ live_agent_config.json
 *.db.backup*
 data/*.db
 
-# Scratch, Log Files, & Temporary Executables
+# ============================================================
+# Scratch, Log Files & Temporary Executables
+# ============================================================
 scratch/
 cloudflared.exe
 cloudflared.exe.exe
@@ -32,31 +40,45 @@ cloudflared.exe.exe
 *.temp
 *.log
 
+# ============================================================
 # IDE & Editor Configurations
+# ============================================================
 .idea/
 .vscode/
 .DS_Store
 
+# ============================================================
 # Benchmark Datasets
-data/SMD/
+# SMD dataset is no longer excluded.
+# Git can now track files inside data/SMD/.
+# ============================================================
 
-# Model Checkpoints (Ignore all by default except whitelisted production models)
+# ============================================================
+# Model Checkpoints
+# Ignore all by default except whitelisted models
+# ============================================================
 checkpoints/*.pt
 checkpoints/*.pth
 checkpoints/*.npy
 
+# ============================================================
 # Whitelisted Production & Baseline Model Checkpoints
+# ============================================================
 !checkpoints/fgead_live_windows_22ch_v3_current_machine.pt
 !checkpoints/fgead_live_windows_22ch_v2_current_machine.pt
 !checkpoints/fgead_live_windows_22ch.pt
 !checkpoints/fgead_smd_machine_1_1.pt
 !checkpoints/best_model.pt
 
+# ============================================================
 # Plots & Generated Reports
+# ============================================================
 plots/
 *.png
 
+# ============================================================
 # Legacy Evaluation Backups
+# ============================================================
 evaluate_smd_final_backup.py
 evaluate_smd_final_backup2.py
 evaluate_smd_final_broken.py
